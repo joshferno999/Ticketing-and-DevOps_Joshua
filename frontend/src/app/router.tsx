@@ -41,15 +41,15 @@ export const router = createBrowserRouter([
       { path: "requests", element: <RequestsPage /> },
       { path: "requests/new", element: <NewRequestPage /> },
       { path: "requests/new/build", element: <NewRequestPage /> },
+      { path: "requests/analytics", element: <RequestsAnalyticsPage /> },
+      { path: "requests/slack", element: <SlackStatusPage /> },
+      { path: "requests/stale", element: <StaleTicketsPage /> },
       { path: "requests/:id", element: <RequestDetailPage /> },
       { path: "triage", element: <TriagePage /> },
       { path: "my-queue", element: <MyQueuePage /> },
       { path: "sponsor", element: <SponsorPortalPage /> },
-      { path: "requests/analytics", element: <RequestsAnalyticsPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/*", element: <AdminPage /> },
-      { path: "requests/slack", element: <SlackStatusPage /> },
-      { path: "requests/stale", element: <StaleTicketsPage /> },
       { path: "*", element: <Navigate to="/boards" replace /> }
     ]
   }

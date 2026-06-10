@@ -10,7 +10,7 @@ import { useSearchParams } from "react-router-dom";
 // Types
 // ─────────────────────────────────────────────
 
-type AdminSection = "modules" | "users" | "sla" | "routing" | "themes" | "templates";
+type AdminSection = "modules" | "users" | "sla" | "routing" | "themes";
 
 const SECTION_LABELS: Record<AdminSection, string> = {
   modules: "Modules",
@@ -18,7 +18,6 @@ const SECTION_LABELS: Record<AdminSection, string> = {
   sla: "SLA Policies",
   routing: "Routing",
   themes: "Themes",
-  templates: "Templates",
 };
 
 const SECTION_ICONS: Record<AdminSection, string> = {
@@ -27,7 +26,6 @@ const SECTION_ICONS: Record<AdminSection, string> = {
   sla: "timer",
   routing: "alt_route",
   themes: "label",
-  templates: "description",
 };
 
 // ── Modules ──────────────────────────────────
@@ -123,29 +121,41 @@ const INITIAL_SLA: SlaRow[] = [
 
 interface PmRule {
   id: string;
-  module: string;
+  moduleId: string;
+  moduleBreadcrumb: string;
   pm: string;
 }
 
-interface AutoRule {
-  id: string;
-  conditionField: string;
-  conditionValue: string;
-  actionType: string;
-  actionValue: string;
-  autoApply: boolean;
-}
+// MODULE_TREE options for the PM rule add form
+const MODULE_TREE_OPTIONS: { id: string; breadcrumb: string }[] = [
+  // DCC
+  { id: "p1m1", breadcrumb: "DCC > Dashboard" },
+  { id: "p1m2", breadcrumb: "DCC > Pipeline" },
+  { id: "p1m3", breadcrumb: "DCC > Deal Details" },
+  { id: "p1m3s1", breadcrumb: "DCC > Deal Details > Overview" },
+  { id: "p1m3s2", breadcrumb: "DCC > Deal Details > Financials" },
+  { id: "p1m3s3", breadcrumb: "DCC > Deal Details > Diligence Tasks" },
+  { id: "p1m3s4", breadcrumb: "DCC > Deal Details > Collaboration" },
+  { id: "p1m3s5", breadcrumb: "DCC > Deal Details > Documentation" },
+  // SCT
+  { id: "p2m1", breadcrumb: "SCT > Dashboard" },
+  { id: "p2m2", breadcrumb: "SCT > Sourcing Lead Pipeline" },
+  { id: "p2m3", breadcrumb: "SCT > Sequence Management" },
+  { id: "p2m4", breadcrumb: "SCT > Email Deliverability Dashboard" },
+  { id: "p2m5", breadcrumb: "SCT > Reply Dashboard" },
+  // Hiring Tool
+  { id: "p3m1", breadcrumb: "Hiring Tool > Ops Tool" },
+  { id: "p3m2", breadcrumb: "Hiring Tool > Screening & Feedback" },
+];
 
-// ── Templates ─────────────────────────────────
+const TEAM_MEMBERS = ["Rishabh", "Hari", "Marcus", "Joshua"];
 
-interface TemplateRow {
-  id: string;
-  name: string;
-  triggerType: string;
-  refinedTask: string;
-  effortEstimate: string;
-  category: string;
-}
+const INITIAL_PM_RULES: PmRule[] = [
+  { id: "r1", moduleId: "p1m1", moduleBreadcrumb: "DCC > Dashboard", pm: "Rishabh" },
+  { id: "r2", moduleId: "p1m2", moduleBreadcrumb: "DCC > Pipeline", pm: "Rishabh" },
+  { id: "r3", moduleId: "p2m1", moduleBreadcrumb: "SCT > Dashboard", pm: "Rishabh" },
+  { id: "r4", moduleId: "p2m2", moduleBreadcrumb: "SCT > Sourcing Lead Pipeline", pm: "Rishabh" },
+];
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -158,7 +168,7 @@ function uid() {
 function resolveSection(input: string | null): AdminSection {
   if (
     input === "modules" || input === "users" || input === "sla" ||
-    input === "routing" || input === "themes" || input === "templates"
+    input === "routing" || input === "themes"
   ) {
     return input;
   }
@@ -692,54 +702,48 @@ function SlaSection() {
 // Sub-section: Routing
 // ─────────────────────────────────────────────
 
+const EXAMPLE_AUTO_RULES: { id: string; description: string; chips: string[] }[] = [
+  {
+    id: "ex1",
+    description: 'If title contains "broken" or "not working"',
+    chips: ["Category: Bug Fix"],
+  },
+  {
+    id: "ex2",
+    description: "If module = SCT + type = data_reporting",
+    chips: ["Assignee: Hari"],
+  },
+  {
+    id: "ex3",
+    description: "If urgency = critical",
+    chips: ["Priority: P0", "Skip PM review"],
+  },
+];
+
 function RoutingSection() {
   const [activeTab, setActiveTab] = useState<"pm" | "auto">("pm");
-  const [pmRules, setPmRules] = useState<PmRule[]>([]);
-  const [autoRules, setAutoRules] = useState<AutoRule[]>([]);
+  const [pmRules, setPmRules] = useState<PmRule[]>(INITIAL_PM_RULES);
 
   // PM rule add form
   const [showPmForm, setShowPmForm] = useState(false);
-  const [pmModule, setPmModule] = useState("");
-  const [pmUser, setPmUser] = useState("");
-
-  // Auto rule add form
-  const [showAutoForm, setShowAutoForm] = useState(false);
-  const [autoField, setAutoField] = useState("");
-  const [autoValue, setAutoValue] = useState("");
-  const [autoActionType, setAutoActionType] = useState("");
-  const [autoActionValue, setAutoActionValue] = useState("");
+  const [pmModuleId, setPmModuleId] = useState(MODULE_TREE_OPTIONS[0]?.id ?? "");
+  const [pmUser, setPmUser] = useState(TEAM_MEMBERS[0] ?? "");
 
   function addPmRule() {
-    if (!pmModule.trim() || !pmUser.trim()) return;
-    setPmRules((prev) => [...prev, { id: uid(), module: pmModule.trim(), pm: pmUser.trim() }]);
-    setPmModule("");
-    setPmUser("");
+    const option = MODULE_TREE_OPTIONS.find((o) => o.id === pmModuleId);
+    if (!option || !pmUser) return;
+    if (pmRules.some((r) => r.moduleId === pmModuleId)) return;
+    setPmRules((prev) => [
+      ...prev,
+      { id: uid(), moduleId: option.id, moduleBreadcrumb: option.breadcrumb, pm: pmUser },
+    ]);
+    setPmModuleId(MODULE_TREE_OPTIONS[0]?.id ?? "");
+    setPmUser(TEAM_MEMBERS[0] ?? "");
     setShowPmForm(false);
   }
 
   function deletePmRule(id: string) {
     setPmRules((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  function addAutoRule() {
-    if (!autoField.trim() || !autoActionType.trim()) return;
-    setAutoRules((prev) => [
-      ...prev,
-      { id: uid(), conditionField: autoField.trim(), conditionValue: autoValue.trim(), actionType: autoActionType.trim(), actionValue: autoActionValue.trim(), autoApply: false },
-    ]);
-    setAutoField("");
-    setAutoValue("");
-    setAutoActionType("");
-    setAutoActionValue("");
-    setShowAutoForm(false);
-  }
-
-  function deleteAutoRule(id: string) {
-    setAutoRules((prev) => prev.filter((r) => r.id !== id));
-  }
-
-  function toggleAutoApply(id: string) {
-    setAutoRules((prev) => prev.map((r) => (r.id === id ? { ...r, autoApply: !r.autoApply } : r)));
   }
 
   return (
@@ -779,64 +783,72 @@ function RoutingSection() {
             </button>
           </div>
 
+          <div className="overflow-x-auto rounded-2xl border border-outline-variant">
+            <table className="min-w-[440px] w-full border-collapse text-left">
+              <thead className="border-b border-outline-variant bg-surface-container-high">
+                <tr>
+                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Module</th>
+                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">PM</th>
+                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant" />
+                </tr>
+              </thead>
+              <tbody className="font-body-md text-body-md text-on-surface">
+                {pmRules.map((rule) => (
+                  <tr key={rule.id} className="border-b border-outline-variant last:border-b-0 hover:bg-surface-container-lowest/60">
+                    <td className="px-stack-md py-stack-sm font-medium">{rule.moduleBreadcrumb}</td>
+                    <td className="px-stack-md py-stack-sm text-on-surface-variant">{rule.pm}</td>
+                    <td className="px-stack-md py-stack-sm text-right">
+                      <button
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 font-label-md text-[0.75rem] text-error hover:bg-error-container/30"
+                        onClick={() => deletePmRule(rule.id)}
+                        title="Delete rule"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">delete</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {pmRules.length === 0 && (
+                  <tr>
+                    <td className="px-stack-md py-stack-sm text-on-surface-variant" colSpan={3}>
+                      No PM assignment rules yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
           {showPmForm && (
-            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/10 p-4">
+            <div className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/10 p-4">
               <div className="flex flex-col gap-1">
                 <label className="font-label-md text-label-md text-on-surface-variant">Module</label>
-                <input
+                <select
                   autoFocus
                   className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  placeholder="Module name"
-                  value={pmModule}
-                  onChange={(e) => setPmModule(e.target.value)}
-                />
+                  value={pmModuleId}
+                  onChange={(e) => setPmModuleId(e.target.value)}
+                >
+                  {MODULE_TREE_OPTIONS.map((o) => (
+                    <option key={o.id} value={o.id}>{o.breadcrumb}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant">PM User</label>
-                <input
+                <label className="font-label-md text-label-md text-on-surface-variant">PM</label>
+                <select
                   className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  placeholder="PM name or email"
                   value={pmUser}
                   onChange={(e) => setPmUser(e.target.value)}
-                />
+                >
+                  {TEAM_MEMBERS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
               </div>
               <button className="rounded-xl bg-primary-container px-stack-md py-stack-sm font-label-md text-label-md text-on-primary" onClick={addPmRule} type="button">Add</button>
               <button className="rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-md py-stack-sm font-label-md text-label-md text-on-surface hover:bg-surface-container-low" onClick={() => setShowPmForm(false)} type="button">Cancel</button>
-            </div>
-          )}
-
-          {pmRules.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-body-md text-on-surface-variant">
-              No PM assignment rules yet. Add a rule to map a module to a PM.
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-outline-variant">
-              <table className="min-w-[400px] w-full border-collapse text-left">
-                <thead className="border-b border-outline-variant bg-surface-container-high">
-                  <tr>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Module</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">PM</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant" />
-                  </tr>
-                </thead>
-                <tbody className="font-body-md text-body-md text-on-surface">
-                  {pmRules.map((rule) => (
-                    <tr key={rule.id} className="border-b border-outline-variant last:border-b-0 hover:bg-surface-container-lowest/60">
-                      <td className="px-stack-md py-stack-sm">{rule.module}</td>
-                      <td className="px-stack-md py-stack-sm text-on-surface-variant">{rule.pm}</td>
-                      <td className="px-stack-md py-stack-sm text-right">
-                        <button
-                          className="rounded-lg px-2 py-1 font-label-md text-[0.75rem] text-error hover:bg-error-container/30"
-                          onClick={() => deletePmRule(rule.id)}
-                          type="button"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           )}
         </section>
@@ -844,92 +856,30 @@ function RoutingSection() {
 
       {activeTab === "auto" && (
         <section className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-margin shadow-[var(--shadow-panel)]">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-headline-md text-headline-md text-on-surface">Auto-routing Rules</h2>
-              <p className="mt-1 font-body-md text-body-md text-on-surface-variant">Automatically assign or route tickets based on field conditions.</p>
-            </div>
-            <button
-              className="flex items-center gap-1 rounded-xl bg-primary-container px-margin py-stack-sm font-label-md text-label-md text-on-primary"
-              onClick={() => setShowAutoForm((v) => !v)}
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              Add rule
-            </button>
+          <h2 className="font-headline-md text-headline-md text-on-surface">Auto-routing Rules</h2>
+          <p className="mt-1 font-body-md text-body-md text-on-surface-variant">
+            Auto-routing automatically categorises tickets based on keywords and module. Configure via the backend config once connected.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-3">
+            {EXAMPLE_AUTO_RULES.map((rule) => (
+              <div key={rule.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-low px-4 py-3">
+                <span className="font-body-md text-body-md text-on-surface-variant">{rule.description}</span>
+                <span className="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_forward</span>
+                <div className="flex flex-wrap gap-2">
+                  {rule.chips.map((chip) => (
+                    <span key={chip} className="rounded-full border border-outline-variant bg-surface-container-lowest px-3 py-0.5 font-label-md text-[0.8rem] text-on-surface">
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {showAutoForm && (
-            <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/10 p-4">
-              {[
-                { label: "Condition Field", value: autoField, set: setAutoField, placeholder: "e.g. priority" },
-                { label: "Condition Value", value: autoValue, set: setAutoValue, placeholder: "e.g. P0" },
-                { label: "Action Type", value: autoActionType, set: setAutoActionType, placeholder: "e.g. assign_to" },
-                { label: "Action Value", value: autoActionValue, set: setAutoActionValue, placeholder: "e.g. user@em.com" },
-              ].map(({ label, value, set, placeholder }) => (
-                <div key={label} className="flex flex-col gap-1">
-                  <label className="font-label-md text-label-md text-on-surface-variant">{label}</label>
-                  <input
-                    className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                    placeholder={placeholder}
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                  />
-                </div>
-              ))}
-              <button className="rounded-xl bg-primary-container px-stack-md py-stack-sm font-label-md text-label-md text-on-primary" onClick={addAutoRule} type="button">Add</button>
-              <button className="rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-md py-stack-sm font-label-md text-label-md text-on-surface hover:bg-surface-container-low" onClick={() => setShowAutoForm(false)} type="button">Cancel</button>
-            </div>
-          )}
-
-          {autoRules.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-body-md text-on-surface-variant">
-              No auto-routing rules yet. Add a rule to define conditional ticket routing logic.
-            </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-outline-variant">
-              <table className="min-w-[640px] w-full border-collapse text-left">
-                <thead className="border-b border-outline-variant bg-surface-container-high">
-                  <tr>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Condition Field</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Condition Value</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Action Type</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Action Value</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Auto Apply</th>
-                    <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant" />
-                  </tr>
-                </thead>
-                <tbody className="font-body-md text-body-md text-on-surface">
-                  {autoRules.map((rule) => (
-                    <tr key={rule.id} className="border-b border-outline-variant last:border-b-0 hover:bg-surface-container-lowest/60">
-                      <td className="px-stack-md py-stack-sm">{rule.conditionField}</td>
-                      <td className="px-stack-md py-stack-sm text-on-surface-variant">{rule.conditionValue || "—"}</td>
-                      <td className="px-stack-md py-stack-sm">{rule.actionType}</td>
-                      <td className="px-stack-md py-stack-sm text-on-surface-variant">{rule.actionValue || "—"}</td>
-                      <td className="px-stack-md py-stack-sm">
-                        <button
-                          className={`relative h-5 w-9 rounded-full transition-colors ${rule.autoApply ? "bg-primary" : "bg-outline-variant"}`}
-                          type="button"
-                          onClick={() => toggleAutoApply(rule.id)}
-                        >
-                          <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${rule.autoApply ? "translate-x-4" : "translate-x-0.5"}`} />
-                        </button>
-                      </td>
-                      <td className="px-stack-md py-stack-sm text-right">
-                        <button
-                          className="rounded-lg px-2 py-1 font-label-md text-[0.75rem] text-error hover:bg-error-container/30"
-                          onClick={() => deleteAutoRule(rule.id)}
-                          type="button"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <p className="mt-4 rounded-2xl border border-dashed border-outline-variant bg-surface-container-low px-4 py-3 font-body-md text-body-md text-on-surface-variant">
+            Auto-routing rules will be editable once the backend is connected.
+          </p>
         </section>
       )}
     </div>
@@ -1049,169 +999,6 @@ function ThemesSection() {
 }
 
 // ─────────────────────────────────────────────
-// Sub-section: Templates
-// ─────────────────────────────────────────────
-
-const EFFORT_OPTIONS = ["XS", "S", "M", "L", "XL"];
-const CATEGORY_OPTIONS = ["Bug", "Feature Request", "Infrastructure", "Research", "Onboarding", "Security", "Reporting"];
-
-function TemplatesSection() {
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formTrigger, setFormTrigger] = useState("");
-  const [formRefined, setFormRefined] = useState("");
-  const [formEffort, setFormEffort] = useState("M");
-  const [formCategory, setFormCategory] = useState("Feature Request");
-
-  function addTemplate() {
-    if (!formName.trim()) return;
-    setTemplates((prev) => [
-      ...prev,
-      {
-        id: uid(),
-        name: formName.trim(),
-        triggerType: formTrigger.trim(),
-        refinedTask: formRefined.trim(),
-        effortEstimate: formEffort,
-        category: formCategory,
-      },
-    ]);
-    setFormName("");
-    setFormTrigger("");
-    setFormRefined("");
-    setFormEffort("M");
-    setFormCategory("Feature Request");
-    setShowForm(false);
-  }
-
-  function deleteTemplate(id: string) {
-    setTemplates((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <section className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-margin shadow-[var(--shadow-panel)]">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="font-headline-md text-headline-md text-on-surface">Request Templates</h2>
-            <p className="mt-1 font-body-md text-body-md text-on-surface-variant">Pre-defined templates that populate new request forms based on trigger conditions.</p>
-          </div>
-          <button
-            className="flex items-center gap-1 rounded-xl bg-primary-container px-margin py-stack-sm font-label-md text-label-md text-on-primary"
-            onClick={() => setShowForm((v) => !v)}
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            New template
-          </button>
-        </div>
-
-        {showForm && (
-          <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-dashed border-primary/40 bg-primary-fixed/10 p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant">Template Name</label>
-                <input
-                  autoFocus
-                  className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  placeholder="e.g. Bug report"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant">Trigger Type</label>
-                <input
-                  className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  placeholder="e.g. manual, alert, webhook"
-                  value={formTrigger}
-                  onChange={(e) => setFormTrigger(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant">Effort Estimate</label>
-                <select
-                  className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  value={formEffort}
-                  onChange={(e) => setFormEffort(e.target.value)}
-                >
-                  {EFFORT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant">Category</label>
-                <select
-                  className="h-[32px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm font-body-md focus:border-primary focus:outline-none"
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                >
-                  {CATEGORY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant">Refined Task Template</label>
-              <textarea
-                className="min-h-[80px] rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm py-2 font-body-md focus:border-primary focus:outline-none"
-                placeholder="Describe the task steps or instructions that will be pre-filled..."
-                value={formRefined}
-                onChange={(e) => setFormRefined(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <button className="rounded-xl bg-primary-container px-stack-md py-stack-sm font-label-md text-label-md text-on-primary" onClick={addTemplate} type="button">Save template</button>
-              <button className="rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-md py-stack-sm font-label-md text-label-md text-on-surface hover:bg-surface-container-low" onClick={() => setShowForm(false)} type="button">Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {templates.length === 0 && !showForm ? (
-          <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-body-md text-on-surface-variant">
-            No templates yet. Create your first template to start pre-filling request forms.
-          </div>
-        ) : templates.length > 0 ? (
-          <div className="overflow-x-auto rounded-2xl border border-outline-variant">
-            <table className="min-w-[600px] w-full border-collapse text-left">
-              <thead className="border-b border-outline-variant bg-surface-container-high">
-                <tr>
-                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Name</th>
-                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Trigger Type</th>
-                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Effort</th>
-                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant">Category</th>
-                  <th className="px-stack-md py-stack-sm font-label-md text-label-md text-on-surface-variant" />
-                </tr>
-              </thead>
-              <tbody className="font-body-md text-body-md text-on-surface">
-                {templates.map((tpl) => (
-                  <tr key={tpl.id} className="border-b border-outline-variant last:border-b-0 hover:bg-surface-container-lowest/60">
-                    <td className="px-stack-md py-stack-sm font-medium">{tpl.name}</td>
-                    <td className="px-stack-md py-stack-sm text-on-surface-variant">{tpl.triggerType || "—"}</td>
-                    <td className="px-stack-md py-stack-sm">
-                      <span className="rounded-full border border-outline-variant bg-surface-container-low px-2 py-0.5 font-label-md text-[0.75rem] text-on-surface-variant">{tpl.effortEstimate}</span>
-                    </td>
-                    <td className="px-stack-md py-stack-sm text-on-surface-variant">{tpl.category}</td>
-                    <td className="px-stack-md py-stack-sm text-right">
-                      <button
-                        className="rounded-lg px-2 py-1 font-label-md text-[0.75rem] text-error hover:bg-error-container/30"
-                        onClick={() => deleteTemplate(tpl.id)}
-                        type="button"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
 // Root
 // ─────────────────────────────────────────────
 
@@ -1269,7 +1056,6 @@ export function AdminPage() {
         {section === "sla" && <SlaSection />}
         {section === "routing" && <RoutingSection />}
         {section === "themes" && <ThemesSection />}
-        {section === "templates" && <TemplatesSection />}
       </div>
     </div>
   );
@@ -1281,7 +1067,6 @@ function sectionDescription(section: AdminSection): string {
     case "users": return "View and manage workspace members, their roles, and access status.";
     case "sla": return "Configure triage and resolution targets per priority level, and set breach notification behaviour.";
     case "routing": return "Define PM assignment rules and automatic routing conditions for incoming tickets.";
-    case "themes": return "Manage the theme tags available when categorising tickets and templates.";
-    case "templates": return "Create and manage reusable request templates that pre-fill new ticket forms.";
+    case "themes": return "Manage the theme tags available when categorising tickets.";
   }
 }

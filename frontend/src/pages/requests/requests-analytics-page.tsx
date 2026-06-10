@@ -182,6 +182,145 @@ export function RequestsAnalyticsPage() {
         <MetricCard icon="timer" label="Avg Resolution (days)" value="4.2" />
       </div>
 
+      {/* ── Team Performance Section ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold text-on-surface">Team Performance</h2>
+
+        {/* 5 performance metric cards */}
+        <div className="grid grid-cols-5 gap-3">
+          {/* Triage Velocity */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-blue-600">
+              <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+              <span className="text-xs font-medium text-on-surface-variant">Triage Velocity</span>
+            </div>
+            <span className="text-2xl font-bold text-on-surface mt-1">1.2 days</span>
+            <span className="text-[11px] text-on-surface-variant leading-tight">Submission → PM review</span>
+          </div>
+
+          {/* SLA Compliance */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-amber-600">
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+              <span className="text-xs font-medium text-on-surface-variant">SLA Compliance</span>
+            </div>
+            <span className="text-2xl font-bold text-amber-600 mt-1">75%</span>
+            <span className="text-[11px] text-on-surface-variant leading-tight">Across all open P0–P2 tickets</span>
+          </div>
+
+          {/* Throughput */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-green-600">
+              <span className="material-symbols-outlined text-[18px]">trending_up</span>
+              <span className="text-xs font-medium text-on-surface-variant">Throughput</span>
+            </div>
+            <span className="text-2xl font-bold text-on-surface mt-1">2/week</span>
+            <span className="text-[11px] text-on-surface-variant leading-tight">Rolling 30-day avg</span>
+          </div>
+
+          {/* Backlog Age */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-orange-600">
+              <span className="material-symbols-outlined text-[18px]">schedule</span>
+              <span className="text-xs font-medium text-on-surface-variant">Backlog Age (P1+)</span>
+            </div>
+            <span className="text-2xl font-bold text-orange-600 mt-1">4.5 days</span>
+            <span className="text-[11px] text-on-surface-variant leading-tight">Age of unresolved P0/P1 tickets</span>
+          </div>
+
+          {/* First Response */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-4 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5 text-green-600">
+              <span className="material-symbols-outlined text-[18px]">reply</span>
+              <span className="text-xs font-medium text-on-surface-variant">First Response</span>
+            </div>
+            <span className="text-2xl font-bold text-on-surface mt-1">6.3 hrs</span>
+            <span className="text-[11px] text-on-surface-variant leading-tight">Submission → first PM comment</span>
+          </div>
+        </div>
+
+        {/* Health Score Banner */}
+        <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-amber-800 text-sm font-medium">
+          <span className="material-symbols-outlined text-[18px] text-amber-500">warning</span>
+          Team health: Fair — 1 SLA breach this week on P1 tickets. Focus: triage velocity.
+        </div>
+
+        {/* 2 side-by-side charts */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Triage Funnel */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 flex flex-col gap-4">
+            <h3 className="text-base font-semibold text-on-surface">Triage Funnel</h3>
+            <div className="flex flex-col gap-3">
+              {(
+                [
+                  { stage: "Submitted", count: 8, color: "bg-blue-400", total: 8 },
+                  { stage: "PM Triaged", count: 4, color: "bg-violet-400", total: 8 },
+                  { stage: "In Sprint", count: 2, color: "bg-teal-400", total: 8 },
+                  { stage: "Shipped", count: 1, color: "bg-green-500", total: 8 },
+                ] as { stage: string; count: number; color: string; total: number }[]
+              ).map(({ stage, count, color, total }) => (
+                <div key={stage} className="flex flex-col gap-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-on-surface-variant font-medium">{stage}</span>
+                    <span className="font-semibold text-on-surface">{count}</span>
+                  </div>
+                  <div className="h-7 bg-surface-container rounded-lg overflow-hidden">
+                    <div
+                      className={`h-full rounded-lg transition-all ${color}`}
+                      style={{ width: `${(count / total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SLA Breach Trend */}
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-on-surface">SLA Breach Trend (7d)</h3>
+              <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-1 rounded-lg">% tickets within SLA</span>
+            </div>
+            <div className="relative flex items-end gap-2 h-36">
+              {/* 80% target dashed line */}
+              <div
+                className="absolute left-0 right-0 border-t-2 border-dashed border-amber-400 pointer-events-none"
+                style={{ bottom: "80%" }}
+              />
+              <span
+                className="absolute right-0 text-[10px] text-amber-600 font-semibold"
+                style={{ bottom: "calc(80% + 3px)" }}
+              >
+                80%
+              </span>
+              {(
+                [
+                  { day: "Mon", pct: 85 },
+                  { day: "Tue", pct: 90 },
+                  { day: "Wed", pct: 75 },
+                  { day: "Thu", pct: 80 },
+                  { day: "Fri", pct: 65 },
+                  { day: "Sat", pct: 100 },
+                  { day: "Sun", pct: 100 },
+                ] as { day: string; pct: number }[]
+              ).map(({ day, pct }) => (
+                <div key={day} className="flex flex-col items-center gap-1 flex-1">
+                  <span className="text-[10px] font-semibold text-on-surface-variant">{pct}%</span>
+                  <div className="w-full flex items-end" style={{ height: "100px" }}>
+                    <div
+                      className={`w-full rounded-t-md transition-all ${pct >= 80 ? "bg-green-400" : "bg-red-400"}`}
+                      style={{ height: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant">{day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* ── End Team Performance ──────────────────────────────────────────── */}
+
       {/* Charts row 1: Status + Type */}
       <div className="grid grid-cols-2 gap-4">
         {/* Status bar chart */}

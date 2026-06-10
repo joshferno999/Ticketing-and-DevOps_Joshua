@@ -17,7 +17,8 @@ type RequestType =
 
 type Urgency = "low" | "medium" | "high" | "critical";
 type Priority = "P0" | "P1" | "P2" | "P3";
-type Category = "Sprint Work" | "New Project" | "Immediate Bug Fix" | "Backlog";
+type Category = "Sprint Work" | "New Project" | "Immediate Bug Fix" | "Backlog" | "Reject";
+type EffortEstimate = "< 1 day" | "1–2 days" | "3–5 days" | "1–2 weeks" | "> 2 weeks";
 
 type Decision = "approved" | "rejected" | "clarification";
 
@@ -29,6 +30,14 @@ interface AiRecommendation {
   assignee: string;
   assigneeRationale: string;
   confidence: number; // 0–100
+  // PM routing
+  skipPmReview: boolean;
+  skipPmReason: string;
+  // Dev assignment
+  effortEstimate: EffortEstimate;
+  effortRationale: string;
+  devReady: boolean;
+  devReadyReason: string;
 }
 
 interface InboxTicket {
@@ -50,6 +59,9 @@ interface TicketAction {
   overridePriority: Priority;
   overrideCategory: Category;
   overrideAssignee: string;
+  overrideEffort: EffortEstimate;
+  overrideSkipPm: boolean;
+  overrideDevReady: boolean;
   pmNotes: string;
 }
 
@@ -63,9 +75,11 @@ interface Toast {
 
 const TEAM_MEMBERS = ["Rishabh (PM)", "Hari (Sr Engineer)", "Marcus Dev", "Joshua (Admin)"];
 
-const CATEGORIES: Category[] = ["Sprint Work", "New Project", "Immediate Bug Fix", "Backlog"];
+const CATEGORIES: Category[] = ["Sprint Work", "New Project", "Immediate Bug Fix", "Backlog", "Reject"];
 
 const PRIORITIES: Priority[] = ["P0", "P1", "P2", "P3"];
+
+const EFFORT_ESTIMATES: EffortEstimate[] = ["< 1 day", "1–2 days", "3–5 days", "1–2 weeks", "> 2 weeks"];
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
 
@@ -89,6 +103,12 @@ const INBOX: InboxTicket[] = [
       assignee: "Marcus Dev",
       assigneeRationale: "Marcus knows the pipeline codebase and has context on recent deploys.",
       confidence: 96,
+      skipPmReview: true,
+      skipPmReason: "Critical P0 regression — assign directly to dev",
+      effortEstimate: "< 1 day",
+      effortRationale: "Known tracking pixel issue, targeted fix",
+      devReady: true,
+      devReadyReason: "Well-scoped, Marcus has context",
     },
   },
   {
@@ -110,6 +130,12 @@ const INBOX: InboxTicket[] = [
       assignee: "Rishabh (PM)",
       assigneeRationale: "Needs PM scoping before dev assignment. Rishabh owns Ops Tool.",
       confidence: 84,
+      skipPmReview: false,
+      skipPmReason: "Needs PM scoping — user story undefined",
+      effortEstimate: "1–2 weeks",
+      effortRationale: "Full onboarding flow, multi-screen",
+      devReady: false,
+      devReadyReason: "Needs PM scoping and wireframes first",
     },
   },
   {
@@ -131,6 +157,12 @@ const INBOX: InboxTicket[] = [
       assignee: "Marcus Dev",
       assigneeRationale: "Marcus knows the reply dashboard codebase.",
       confidence: 91,
+      skipPmReview: true,
+      skipPmReason: "Well-scoped UI ask — skip to dev",
+      effortEstimate: "1–2 days",
+      effortRationale: "Date range picker component already exists",
+      devReady: true,
+      devReadyReason: "Clear spec, Marcus knows the codebase",
     },
   },
   {
@@ -152,6 +184,12 @@ const INBOX: InboxTicket[] = [
       assignee: "Hari (Sr Engineer)",
       assigneeRationale: "Hari owns the SCT data layer and reporting infrastructure.",
       confidence: 72,
+      skipPmReview: false,
+      skipPmReason: "Needs PM to define report schema and export format",
+      effortEstimate: "3–5 days",
+      effortRationale: "New data pipeline + UI + scheduled email",
+      devReady: false,
+      devReadyReason: "Awaiting PM report spec",
     },
   },
 ];
@@ -222,6 +260,44 @@ function confidenceBadge(confidence: number) {
   );
 }
 
+function SkipPmChip({ skip, reason }: { skip: boolean; reason: string }) {
+  if (skip) {
+    return (
+      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+        <span className="material-symbols-outlined text-[14px]">bolt</span>
+        Skip PM — assign directly to dev
+        <span className="ml-1 font-normal opacity-70">· {reason}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+      <span className="material-symbols-outlined text-[14px]">rate_review</span>
+      PM review required
+      <span className="ml-1 font-normal opacity-70">· {reason}</span>
+    </div>
+  );
+}
+
+function DevReadyChip({ ready, reason }: { ready: boolean; reason: string }) {
+  if (ready) {
+    return (
+      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+        Ready to assign
+        <span className="ml-1 font-normal opacity-70">· {reason}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+      <span className="material-symbols-outlined text-[14px]">pending</span>
+      Needs PM scoping first — don't assign yet
+      <span className="ml-1 font-normal opacity-70">· {reason}</span>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TriagePage() {
@@ -235,6 +311,9 @@ export function TriagePage() {
   const [overridePriority, setOverridePriority] = useState<Priority>("P2");
   const [overrideCategory, setOverrideCategory] = useState<Category>("Sprint Work");
   const [overrideAssignee, setOverrideAssignee] = useState(TEAM_MEMBERS[0] ?? "");
+  const [overrideEffort, setOverrideEffort] = useState<EffortEstimate>("1–2 days");
+  const [overrideSkipPm, setOverrideSkipPm] = useState(false);
+  const [overrideDevReady, setOverrideDevReady] = useState(false);
   const [pmNotes, setPmNotes] = useState("");
 
   const selectedTicket = INBOX.find((t) => t.id === selectedId)!;
@@ -248,6 +327,9 @@ export function TriagePage() {
       setOverridePriority(selectedTicket.ai.priority);
       setOverrideCategory(selectedTicket.ai.category as Category);
       setOverrideAssignee(selectedTicket.ai.assignee);
+      setOverrideEffort(selectedTicket.ai.effortEstimate);
+      setOverrideSkipPm(selectedTicket.ai.skipPmReview);
+      setOverrideDevReady(selectedTicket.ai.devReady);
     }
   }, [selectedId]);
 
@@ -269,6 +351,9 @@ export function TriagePage() {
       overridePriority,
       overrideCategory,
       overrideAssignee,
+      overrideEffort,
+      overrideSkipPm,
+      overrideDevReady,
       pmNotes,
     };
     setActions((prev) => ({ ...prev, [selectedId]: action }));
@@ -283,6 +368,9 @@ export function TriagePage() {
       overridePriority,
       overrideCategory,
       overrideAssignee,
+      overrideEffort,
+      overrideSkipPm,
+      overrideDevReady,
       pmNotes,
     };
     setActions((prev) => ({ ...prev, [selectedId]: action }));
@@ -297,6 +385,9 @@ export function TriagePage() {
       overridePriority,
       overrideCategory,
       overrideAssignee,
+      overrideEffort,
+      overrideSkipPm,
+      overrideDevReady,
       pmNotes,
     };
     setActions((prev) => ({ ...prev, [selectedId]: action }));
@@ -487,6 +578,7 @@ export function TriagePage() {
 
                 {/* ── AI Recommendation card ── */}
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-[20px] text-amber-600">auto_awesome</span>
@@ -495,40 +587,81 @@ export function TriagePage() {
                     {confidenceBadge(selectedTicket.ai.confidence)}
                   </div>
 
-                  <div className="space-y-4">
-                    {/* Priority */}
-                    <div className="flex items-start gap-3">
-                      <div className="flex shrink-0 items-center gap-1.5 w-36">
-                        <span className="material-symbols-outlined text-[16px] text-amber-500">flag</span>
-                        <span className="text-xs font-medium text-amber-800">Priority Tier</span>
+                  {/* Two-column cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* ── PM Recommendation card ── */}
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-blue-600">lock</span>
+                        <span className="text-xs font-bold uppercase tracking-wide text-blue-700">PM</span>
                       </div>
+
+                      {/* Priority tier */}
                       <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-blue-500">flag</span>
+                          <span className="text-xs font-medium text-blue-800">Priority Tier</span>
+                        </div>
                         <div className="mb-1">{priorityBadge(selectedTicket.ai.priority)}</div>
-                        <p className="text-xs italic text-amber-700">{selectedTicket.ai.priorityRationale}</p>
+                        <p className="text-xs italic text-blue-700 leading-snug">{selectedTicket.ai.priorityRationale}</p>
+                      </div>
+
+                      {/* Category */}
+                      <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-blue-500">category</span>
+                          <span className="text-xs font-medium text-blue-800">Category</span>
+                        </div>
+                        <p className="mb-1 text-sm font-semibold text-blue-900">{selectedTicket.ai.category}</p>
+                        <p className="text-xs italic text-blue-700 leading-snug">{selectedTicket.ai.categoryRationale}</p>
+                      </div>
+
+                      {/* Skip PM chip */}
+                      <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-blue-500">route</span>
+                          <span className="text-xs font-medium text-blue-800">Skip PM Review?</span>
+                        </div>
+                        <SkipPmChip skip={selectedTicket.ai.skipPmReview} reason={selectedTicket.ai.skipPmReason} />
                       </div>
                     </div>
 
-                    {/* Category */}
-                    <div className="flex items-start gap-3">
-                      <div className="flex shrink-0 items-center gap-1.5 w-36">
-                        <span className="material-symbols-outlined text-[16px] text-amber-500">category</span>
-                        <span className="text-xs font-medium text-amber-800">Category</span>
+                    {/* ── Dev Recommendation card ── */}
+                    <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3 space-y-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-violet-600">code</span>
+                        <span className="text-xs font-bold uppercase tracking-wide text-violet-700">Dev</span>
                       </div>
-                      <div>
-                        <p className="mb-1 text-sm font-semibold text-amber-900">{selectedTicket.ai.category}</p>
-                        <p className="text-xs italic text-amber-700">{selectedTicket.ai.categoryRationale}</p>
-                      </div>
-                    </div>
 
-                    {/* Assignee */}
-                    <div className="flex items-start gap-3">
-                      <div className="flex shrink-0 items-center gap-1.5 w-36">
-                        <span className="material-symbols-outlined text-[16px] text-amber-500">person_pin</span>
-                        <span className="text-xs font-medium text-amber-800">Suggested Assignee</span>
-                      </div>
+                      {/* Suggested assignee */}
                       <div>
-                        <p className="mb-1 text-sm font-semibold text-amber-900">{selectedTicket.ai.assignee}</p>
-                        <p className="text-xs italic text-amber-700">{selectedTicket.ai.assigneeRationale}</p>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-violet-500">person_pin</span>
+                          <span className="text-xs font-medium text-violet-800">Suggested Assignee</span>
+                        </div>
+                        <p className="mb-1 text-sm font-semibold text-violet-900">{selectedTicket.ai.assignee}</p>
+                        <p className="text-xs italic text-violet-700 leading-snug">{selectedTicket.ai.assigneeRationale}</p>
+                      </div>
+
+                      {/* Effort estimate */}
+                      <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-violet-500">timer</span>
+                          <span className="text-xs font-medium text-violet-800">Effort Estimate</span>
+                        </div>
+                        <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+                          {selectedTicket.ai.effortEstimate}
+                        </span>
+                        <p className="mt-1 text-xs italic text-violet-700 leading-snug">{selectedTicket.ai.effortRationale}</p>
+                      </div>
+
+                      {/* Dev ready chip */}
+                      <div>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="material-symbols-outlined text-[14px] text-violet-500">assignment_turned_in</span>
+                          <span className="text-xs font-medium text-violet-800">Skip Dev Assignment?</span>
+                        </div>
+                        <DevReadyChip ready={selectedTicket.ai.devReady} reason={selectedTicket.ai.devReadyReason} />
                       </div>
                     </div>
                   </div>
@@ -559,47 +692,109 @@ export function TriagePage() {
                   </div>
 
                   {!useAiRec && (
-                    <div className="grid grid-cols-3 gap-3">
-                      {/* Priority select */}
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-on-surface-variant">Priority</label>
-                        <select
-                          value={overridePriority}
-                          onChange={(e) => setOverridePriority(e.target.value as Priority)}
-                          className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          {PRIORITIES.map((p) => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Priority select */}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-on-surface-variant">Priority</label>
+                          <select
+                            value={overridePriority}
+                            onChange={(e) => setOverridePriority(e.target.value as Priority)}
+                            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {PRIORITIES.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Category select */}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-on-surface-variant">Category</label>
+                          <select
+                            value={overrideCategory}
+                            onChange={(e) => setOverrideCategory(e.target.value as Category)}
+                            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {CATEGORIES.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Assignee select */}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-on-surface-variant">Assignee</label>
+                          <select
+                            value={overrideAssignee}
+                            onChange={(e) => setOverrideAssignee(e.target.value)}
+                            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {TEAM_MEMBERS.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
-                      {/* Category select */}
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-on-surface-variant">Category</label>
-                        <select
-                          value={overrideCategory}
-                          onChange={(e) => setOverrideCategory(e.target.value as Category)}
-                          className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          {CATEGORIES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      </div>
+                      {/* Effort estimate select */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-on-surface-variant">Effort Estimate</label>
+                          <select
+                            value={overrideEffort}
+                            onChange={(e) => setOverrideEffort(e.target.value as EffortEstimate)}
+                            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {EFFORT_ESTIMATES.map((e) => (
+                              <option key={e} value={e}>{e}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                      {/* Assignee select */}
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-on-surface-variant">Assignee</label>
-                        <select
-                          value={overrideAssignee}
-                          onChange={(e) => setOverrideAssignee(e.target.value)}
-                          className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          {TEAM_MEMBERS.map((m) => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
+                        {/* Skip PM review toggle */}
+                        <div className="flex flex-col justify-center gap-1">
+                          <label className="text-xs font-medium text-on-surface-variant">Skip PM Review</label>
+                          <button
+                            role="switch"
+                            aria-checked={overrideSkipPm}
+                            onClick={() => setOverrideSkipPm((v) => !v)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              overrideSkipPm ? "bg-green-500" : "bg-outline-variant"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                overrideSkipPm ? "translate-x-4" : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
+                          <span className="text-xs text-on-surface-variant">
+                            {overrideSkipPm ? "Skip PM" : "PM review required"}
+                          </span>
+                        </div>
+
+                        {/* Dev ready toggle */}
+                        <div className="flex flex-col justify-center gap-1">
+                          <label className="text-xs font-medium text-on-surface-variant">Dev Ready</label>
+                          <button
+                            role="switch"
+                            aria-checked={overrideDevReady}
+                            onClick={() => setOverrideDevReady((v) => !v)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                              overrideDevReady ? "bg-green-500" : "bg-amber-400"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                overrideDevReady ? "translate-x-4" : "translate-x-0.5"
+                              }`}
+                            />
+                          </button>
+                          <span className="text-xs text-on-surface-variant">
+                            {overrideDevReady ? "Ready to assign" : "Needs PM scoping"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}
