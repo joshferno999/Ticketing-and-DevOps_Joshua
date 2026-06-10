@@ -19,16 +19,25 @@ function resolveUser(data: any): SessionUser | null {
   };
 }
 
+// Set VITE_DEMO_MODE=true in frontend/.env.local to bypass auth for local testing
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+const DEMO_USER: SessionUser = {
+  id: "demo",
+  email: "joshua@emsoft.com",
+  name: "Joshua Fernando",
+};
+
 export function useSession() {
   const [state, setState] = useState<{
     loading: boolean;
     user: SessionUser | null;
   }>({
-    loading: true,
-    user: null
+    loading: DEMO_MODE ? false : true,
+    user: DEMO_MODE ? DEMO_USER : null,
   });
 
   useEffect(() => {
+    if (DEMO_MODE) return; // skip auth call in demo mode
     let active = true;
 
     authClient.getSession()
