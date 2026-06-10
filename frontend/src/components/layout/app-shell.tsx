@@ -18,11 +18,12 @@ const devopsNav = [
 ];
 
 const buildtrackNav = [
-  { to: "/requests",  label: "Requests",  icon: "confirmation_number" },
-  { to: "/triage",    label: "Triage",    icon: "inbox" },
-  { to: "/my-queue",  label: "My Queue",  icon: "checklist" },
-  { to: "/sponsor",   label: "Sponsor",   icon: "person_pin" },
-  { to: "/admin",     label: "Admin",     icon: "admin_panel_settings" },
+  { to: "/requests",            label: "Requests",  icon: "confirmation_number" },
+  { to: "/triage",              label: "Triage",    icon: "inbox" },
+  { to: "/my-queue",            label: "My Queue",  icon: "checklist" },
+  { to: "/requests/analytics",  label: "Analytics", icon: "bar_chart" },
+  { to: "/sponsor",             label: "Sponsor",   icon: "person_pin" },
+  { to: "/admin",               label: "Admin",     icon: "admin_panel_settings" },
 ];
 
 // Combined for mobile nav (which iterates navItems)
