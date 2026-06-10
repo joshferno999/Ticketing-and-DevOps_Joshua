@@ -32,6 +32,7 @@ model AppUser {
   assignedCards             Card[]               @relation("CardAssignee")
   cardComments              CardComment[]        @relation("CardCommentAuthor")
   auditEvents               AuditEvent[]
+  btProfile                 BtUserProfile?
 }
 
 model AppSession {
@@ -255,4 +256,296 @@ model AuditEvent {
   createdAt  DateTime @default(now())
   actorId    String
   actor      AppUser  @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+// BuildTrack — product feedback & ticketing
+// ─────────────────────────────────────────────
+
+enum BtRole {
+  sponsor
+  pm
+  dev
+  sr_engineer
+  admin
+}
+
+enum BtRequestType {
+  bug
+  enhancement
+  new_feature
+  data_reporting
+  process_change
+  sponsor_build
+}
+
+enum BtUrgency {
+  critical
+  high
+  medium
+  low
+}
+
+enum BtStatus {
+  submitted
+  clarification_needed
+  pending
+  in_sprint
+  blocked
+  next_phase
+  new_project
+  shipped
+  wont_fix
+}
+
+enum BtPriorityTier {
+  p0
+  p1
+  p2
+  p3
+}
+
+enum BtCategory {
+  immediate_bug_fix
+  sprint_work
+  new_project
+  next_phase
+  deferred
+  rejected
+}
+
+enum BtEffortEstimate {
+  lt_1day
+  one_2days
+  three_5days
+  one_2weeks
+  gt_2weeks
+}
+
+enum BtDevStage {
+  picked_up
+  in_progress
+  blocked
+  done
+}
+
+enum BtModuleLevel {
+  product
+  module
+  submodule
+}
+
+enum BtTicketEventType {
+  status_change
+  assigned
+  pushed_to_asana
+  pr_linked
+  comment_added
+  gate_updated
+  escalated
+  ai_recommendation
+}
+
+// Extend AppUser with BuildTrack role
+model BtUserProfile {
+  id               String    @id @default(cuid())
+  role             BtRole    @default(sponsor)
+  slackUserId      String?
+  slackDmChannelId String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  appUserId        String    @unique
+  appUser          AppUser   @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  submittedTickets BtTicket[] @relation("TicketSponsor")
+  assignedTickets  BtTicket[] @relation("TicketAssignee")
+  gateApprovals    BtTicket[] @relation("TicketGateApprover")
+  comments         BtComment[]
+  ticketEvents     BtTicketEvent[]
+  pmRoutingRules   BtPmRoutingRule[]
+  adminConfigUpdates BtAdminConfig[]
+  requestTemplates BtRequestTemplate[]
+}
+
+// 3-level module hierarchy: product → module → submodule
+model BtModule {
+  id         String        @id @default(cuid())
+  name       String
+  level      BtModuleLevel
+  sortOrder  Int           @default(0)
+  isArchived Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  parentId   String?
+  parent     BtModule?     @relation("ModuleChildren", fields: [parentId], references: [id])
+  children   BtModule[]    @relation("ModuleChildren")
+  tickets    BtTicket[]
+  pmRules    BtPmRoutingRule[]
+  autoRules  BtAutoRoutingRule[]
+
+  @@index([parentId])
+}
+
+model BtTheme {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  isArchived Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  tickets    BtTicket[]
+}
+
+model BtTicket {
+  id              String           @id @default(cuid())
+  shortId         String           @unique  // REQ-001
+  title           String
+  description     String           @db.Text
+  requestType     BtRequestType
+  urgency         BtUrgency        @default(medium)
+  status          BtStatus         @default(submitted)
+  devStage        BtDevStage?
+  priorityTier    BtPriorityTier?
+  category        BtCategory?
+  annotationUrl   String?
+  attachments     Json             @default("[]")  // S3 URLs
+  browserMetadata Json?
+  pageUrl         String?
+
+  // AI recommendations (stored separately so PM can see original vs override)
+  aiPriorityTier  BtPriorityTier?
+  aiCategory      BtCategory?
+  aiAssigneeId    String?
+  aiThemeEpic     String?
+  aiConfidence    Float?
+
+  // PM-set fields
+  themeEpic       String?
+  refinedTask     String?          @db.Text
+  pmReasoning     String?          @db.Text
+  effortEstimate  BtEffortEstimate?
+  actualEffortHours Float?
+  targetDate      DateTime?
+  actualShipDate  DateTime?
+
+  // Integrations
+  asanaTaskId     String?
+  githubPrUrls    Json             @default("[]")
+
+  // Sponsor build fields
+  isSponsorBuild       Boolean   @default(false)
+  sbUserStory          String?   @db.Text
+  sbExpectedOutput     String?   @db.Text
+  sbGithubBranch       String?
+  sbIntegrations       String?
+  sbRisks              String?   @db.Text
+  sbTestCases          Json?
+  sbDemoUrl            String?
+
+  // Production gate (sponsor builds only)
+  gateNoConflicts      Boolean   @default(false)
+  gateTestsPass        Boolean   @default(false)
+  gatePmSignoff        Boolean   @default(false)
+  gateApprovedById     String?
+  gateApprovedBy       BtUserProfile? @relation("TicketGateApprover", fields: [gateApprovedById], references: [id])
+
+  // Stale tracking
+  staledAt             DateTime?
+  staleNotifiedAt      DateTime?
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  moduleId        String?
+  module          BtModule?        @relation(fields: [moduleId], references: [id])
+  sponsorId       String
+  sponsor         BtUserProfile    @relation("TicketSponsor", fields: [sponsorId], references: [id])
+  assigneeId      String?
+  assignee        BtUserProfile?   @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  themeId         String?
+  theme           BtTheme?         @relation(fields: [themeId], references: [id])
+
+  comments        BtComment[]
+  events          BtTicketEvent[]
+
+  @@index([sponsorId])
+  @@index([assigneeId])
+  @@index([moduleId])
+  @@index([status])
+  @@index([priorityTier])
+  @@index([createdAt])
+}
+
+model BtComment {
+  id                    String        @id @default(cuid())
+  body                  String        @db.Text
+  isClarificationRequest Boolean      @default(false)
+  slackTs               String?
+  createdAt             DateTime      @default(now())
+  ticketId              String
+  ticket                BtTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId              String
+  author                BtUserProfile @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+model BtTicketEvent {
+  id        String              @id @default(cuid())
+  eventType BtTicketEventType
+  fromValue String?
+  toValue   String?
+  metadata  Json?
+  createdAt DateTime            @default(now())
+  ticketId  String
+  ticket    BtTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId   String
+  actor     BtUserProfile       @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+// Key-value store for all admin-configurable settings
+model BtAdminConfig {
+  id          String        @id @default(cuid())
+  key         String        @unique
+  value       Json
+  updatedAt   DateTime      @updatedAt
+  updatedById String
+  updatedBy   BtUserProfile @relation(fields: [updatedById], references: [id])
+}
+
+model BtPmRoutingRule {
+  id         String        @id @default(cuid())
+  priority   Int           @default(0)
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  moduleId   String?
+  module     BtModule?     @relation(fields: [moduleId], references: [id])
+  pmUserId   String
+  pmUser     BtUserProfile @relation(fields: [pmUserId], references: [id])
+
+  @@index([moduleId])
+}
+
+model BtAutoRoutingRule {
+  id             String   @id @default(cuid())
+  conditionField String
+  conditionValue String
+  actionType     String
+  actionValue    String
+  autoApply      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  moduleId       String?
+  module         BtModule? @relation(fields: [moduleId], references: [id])
+}
+
+model BtRequestTemplate {
+  id                   String        @id @default(cuid())
+  name                 String
+  triggerType          String
+  refinedTaskTemplate  String        @db.Text
+  effortEstimate       String?
+  category             String?
+  createdAt            DateTime      @default(now())
+  createdById          String
+  createdBy            BtUserProfile @relation(fields: [createdById], references: [id])
 }

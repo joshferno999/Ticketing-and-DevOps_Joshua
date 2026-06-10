@@ -10,6 +10,15 @@ import { ReposPage } from "../pages/repos-page";
 import { SettingsPage } from "../pages/settings-page";
 import { SignInPage } from "../pages/sign-in-page";
 import { WorkItemsPage } from "../pages/work-items-page";
+// BuildTrack pages
+import { RequestsPage } from "../pages/requests/requests-page";
+import { NewRequestPage } from "../pages/requests/new-request-page";
+import { RequestDetailPage } from "../pages/requests/request-detail-page";
+import { TriagePage } from "../pages/requests/triage-page";
+import { MyQueuePage } from "../pages/requests/my-queue-page";
+import { SponsorPortalPage } from "../pages/requests/sponsor-portal-page";
+import { RequestsAnalyticsPage } from "../pages/requests/requests-analytics-page";
+import { AdminPage } from "../pages/admin/admin-page";
 
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage />, errorElement: <RouteErrorBoundary /> },
@@ -19,12 +28,24 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     errorElement: <RouteErrorBoundary />,
     children: [
+      // ── DevOps ──
       { path: "boards", element: <BoardsPage /> },
       { path: "repos", element: <ReposPage /> },
       { path: "repos/:repositoryId/graph", element: <RepoCommitGraphPage /> },
       { path: "work-items", element: <WorkItemsPage /> },
       { path: "analytics", element: <AnalyticsPage /> },
       { path: "settings", element: <SettingsPage /> },
+      // ── BuildTrack ──
+      { path: "requests", element: <RequestsPage /> },
+      { path: "requests/new", element: <NewRequestPage /> },
+      { path: "requests/new/build", element: <NewRequestPage /> },
+      { path: "requests/:id", element: <RequestDetailPage /> },
+      { path: "triage", element: <TriagePage /> },
+      { path: "my-queue", element: <MyQueuePage /> },
+      { path: "sponsor", element: <SponsorPortalPage /> },
+      { path: "requests/analytics", element: <RequestsAnalyticsPage /> },
+      { path: "admin", element: <AdminPage /> },
+      { path: "admin/*", element: <AdminPage /> },
       { path: "*", element: <Navigate to="/boards" replace /> }
     ]
   }

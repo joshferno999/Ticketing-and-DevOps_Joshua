@@ -8,6 +8,12 @@ import { registerIntegrationDataRoutes } from "./integrations.routes";
 import { registerRepositoryRoutes } from "./repositories.routes";
 import { registerReachabilityRoutes } from "../modules/reachability/reachability.routes";
 import { registerCloudflareTrafficRoutes } from "../modules/cloudflare-traffic/cloudflare-traffic.routes";
+// BuildTrack routes
+import { registerBuildTrackTicketRoutes } from "./buildtrack-tickets.routes";
+import { registerBuildTrackModuleRoutes } from "./buildtrack-modules.routes";
+import { registerBuildTrackAdminRoutes } from "./buildtrack-admin.routes";
+import { registerBuildTrackAnalyticsRoutes } from "./buildtrack-analytics.routes";
+import { registerBuildTrackSlackRoutes } from "./buildtrack-slack.routes";
 
 export async function registerRoutes(app: FastifyInstance) {
   app.register(registerSystemRoutes, { prefix: "/api" });
@@ -19,4 +25,10 @@ export async function registerRoutes(app: FastifyInstance) {
   app.register(registerIntegrationDataRoutes, { prefix: "/api" });
   app.register(registerRepositoryRoutes, { prefix: "/api" });
   app.register(registerWebhookRoutes, { prefix: "/api" });
+  // BuildTrack
+  app.register(registerBuildTrackTicketRoutes, { prefix: "/api" });
+  app.register(registerBuildTrackModuleRoutes, { prefix: "/api" });
+  app.register(registerBuildTrackAdminRoutes, { prefix: "/api" });
+  app.register(registerBuildTrackAnalyticsRoutes, { prefix: "/api" });
+  app.register(registerBuildTrackSlackRoutes, { prefix: "/api" });
 }

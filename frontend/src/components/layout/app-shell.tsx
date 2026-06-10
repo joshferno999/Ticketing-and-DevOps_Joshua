@@ -9,13 +9,24 @@ import { cn } from "../../lib/utils";
 import { CompanyLogo } from "../brand/company-logo";
 import { ProfileAvatar } from "../ui/profile-avatar";
 
-const navItems = [
-  { to: "/boards", label: "Boards", icon: "dashboard" },
-  { to: "/repos", label: "Repos", icon: "code" },
+const devopsNav = [
+  { to: "/boards",     label: "Boards",     icon: "dashboard" },
+  { to: "/repos",      label: "Repos",      icon: "code" },
   { to: "/work-items", label: "Work Items", icon: "list_alt" },
-  { to: "/analytics", label: "Analytics", icon: "analytics" },
-  { to: "/settings", label: "Settings", icon: "settings" }
+  { to: "/analytics",  label: "Analytics",  icon: "analytics" },
+  { to: "/settings",   label: "Settings",   icon: "settings" },
 ];
+
+const buildtrackNav = [
+  { to: "/requests",  label: "Requests",  icon: "confirmation_number" },
+  { to: "/triage",    label: "Triage",    icon: "inbox" },
+  { to: "/my-queue",  label: "My Queue",  icon: "checklist" },
+  { to: "/sponsor",   label: "Sponsor",   icon: "person_pin" },
+  { to: "/admin",     label: "Admin",     icon: "admin_panel_settings" },
+];
+
+// Combined for mobile nav (which iterates navItems)
+const navItems = [...devopsNav, ...buildtrackNav];
 
 export function AppShell() {
   const { loading, user } = useSession();
@@ -175,9 +186,47 @@ export function AppShell() {
           showAsanaSetupBanner ? "top-[calc(var(--spacing-toolbar-height)+2.75rem)]" : "top-toolbar-height"
         )}
       >
-        <div>
-          <ul className="flex flex-col gap-1 px-stack-sm py-stack-sm">
-            {navItems.map((item) => (
+        <div className="overflow-y-auto">
+          {/* DevOps section */}
+          <ul className="flex flex-col gap-1 px-stack-sm pt-stack-sm">
+            {devopsNav.map((item) => (
+              <li key={item.to} className="group cursor-pointer">
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-all",
+                      isActive
+                        ? "bg-[var(--inverse-surface)] text-[var(--inverse-on-surface)] shadow-sm"
+                        : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn("material-symbols-outlined text-[18px]", isActive ? "text-[var(--inverse-on-surface)]" : "text-current")}
+                        style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                      >
+                        {item.icon}
+                      </span>
+                      <span className={cn("font-label-md text-label-md", isActive ? "text-[var(--inverse-on-surface)]" : "text-current")}>{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+
+          {/* BuildTrack section divider */}
+          <div className="mx-stack-sm my-2 flex items-center gap-2">
+            <div className="h-px flex-1 bg-outline-variant" />
+            <span className="font-label-sm text-[10px] uppercase tracking-[0.08em] text-on-surface-variant opacity-50">BuildTrack</span>
+            <div className="h-px flex-1 bg-outline-variant" />
+          </div>
+
+          <ul className="flex flex-col gap-1 px-stack-sm pb-stack-sm">
+            {buildtrackNav.map((item) => (
               <li key={item.to} className="group cursor-pointer">
                 <NavLink
                   to={item.to}
