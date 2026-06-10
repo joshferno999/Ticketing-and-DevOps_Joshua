@@ -274,7 +274,7 @@ export function AppShell() {
 
       <main
         className={cn(
-          "relative min-h-0 bg-background-alt md:ml-sidebar-width",
+          "relative min-h-0 overflow-y-auto bg-background-alt md:ml-sidebar-width",
           showAsanaSetupBanner
             ? "mt-[calc(var(--spacing-toolbar-height)+4rem)] h-[calc(100dvh-var(--spacing-toolbar-height)-4rem)] md:mt-[calc(var(--spacing-toolbar-height)+2.75rem)] md:h-[calc(100dvh-var(--spacing-toolbar-height)-2.75rem)]"
             : "mt-toolbar-height h-[calc(100dvh-var(--spacing-toolbar-height))]"
