@@ -1,0 +1,20 @@
+{
+  "name": "emergence-devops",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "npm run build --workspace packages/shared && (npm run dev --workspace backend & npm run dev --workspace frontend)",
+    "build": "npm run build --workspace packages/shared && npm run build --workspace backend && npm run build --workspace frontend",
+    "typecheck": "npm run typecheck --workspace packages/shared && npm run prisma:generate && npm run typecheck --workspace backend && npm run typecheck --workspace frontend",
+    "test": "npm run build --workspace packages/shared && npm run test --workspace packages/shared && npm run test --workspace backend --if-present && npm run test --workspace frontend --if-present",
+    "lint": "npm run lint --workspace packages/shared && npm run lint --workspace backend && npm run lint --workspace frontend",
+    "analytics:reports": "npm run analytics:reports --workspace backend --",
+    "prisma:generate": "npm run prisma:generate --workspace backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace backend"
+  }
+}

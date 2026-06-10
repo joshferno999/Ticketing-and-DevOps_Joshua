@@ -1,0 +1,60 @@
+name: cloudflare-maintenance
+
+# Cloudflare secrets sync and cache purge — run manually, not on every deploy.
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  VITE_API_BASE_URL: https://devops.emsoft.com/api
+
+jobs:
+  sync-secrets-and-purge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync Cloudflare keys to Secrets Manager
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          chmod +x infra/ecs/scripts/ensure-backend-secret-keys.sh
+          ./infra/ecs/scripts/ensure-backend-secret-keys.sh
+
+      - name: Purge Cloudflare cache
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ZONE_ID}" ]; then
+            echo "Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID repository secrets first."
+            exit 1
+          fi
+          curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
+          echo "Cloudflare cache purged."
+
+      - name: Verify traffic API (optional)
+        continue-on-error: true
+        run: |
+          curl -fsS "${VITE_API_BASE_URL}/health" >/dev/null
+          status=$(curl -s -o /tmp/cloudflare-traffic.json -w "%{http_code}" \
+            "${VITE_API_BASE_URL}/traffic/cloudflare")
+          cat /tmp/cloudflare-traffic.json
+          echo
+          if [ "$status" = "404" ]; then
+            echo "Traffic route returned 404 — redeploy backend after secrets sync."
+            exit 1
+          fi
+          echo "Traffic API responded with HTTP ${status}."

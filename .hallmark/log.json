@@ -1,0 +1,18 @@
+[
+  {
+    "date": "2026-05-21",
+    "scope": "landing",
+    "macrostructure": "Split Studio",
+    "theme": "Control Room",
+    "enrichment": "Tier A CSS graph",
+    "brief": "Public landing rebuild — scroll, spacing, motion"
+  },
+  {
+    "date": "2026-05-21",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "Control Room",
+    "enrichment": "none",
+    "brief": "Modern-minimal whole-frontend UI redesign for Emergence Devops"
+  }
+]

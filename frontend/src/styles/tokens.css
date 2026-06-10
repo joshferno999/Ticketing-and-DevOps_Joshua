@@ -1,0 +1,124 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: Control Room · enrichment: none · nav: app command rail · footer: none
+ * Hallmark · pre-emit critique: P5 H4 E4 S5 R5 V4
+ */
+:root {
+  --color-paper: oklch(96.9% 0.004 247);
+  --color-paper-2: oklch(94.5% 0.005 247);
+  --color-paper-3: oklch(91.1% 0.007 247);
+  --color-panel: oklch(98.7% 0.002 247);
+  --color-panel-2: oklch(95.9% 0.004 247);
+  --color-panel-3: oklch(92.9% 0.006 247);
+  --color-ink: oklch(18.5% 0.014 250);
+  --color-ink-2: oklch(38.5% 0.017 248);
+  --color-ink-3: oklch(55% 0.014 248);
+  --color-rule: oklch(85% 0.008 247);
+  --color-rule-strong: oklch(71% 0.012 247);
+  --color-accent: oklch(46% 0.05 247);
+  --color-accent-strong: oklch(34% 0.045 247);
+  --color-accent-soft: oklch(90.2% 0.012 247);
+  --color-accent-ink: oklch(98.1% 0.002 247);
+  --color-focus: oklch(54% 0.075 247);
+  --color-success: oklch(47% 0.06 160);
+  --color-success-soft: oklch(91% 0.02 160);
+  --color-warning: oklch(56% 0.07 72);
+  --color-warning-soft: oklch(92% 0.025 72);
+  --color-danger: oklch(50% 0.08 28);
+  --color-danger-soft: oklch(92% 0.022 28);
+  --color-info: oklch(46% 0.05 235);
+  --color-info-soft: oklch(91% 0.018 235);
+
+  --surface: var(--color-paper);
+  --surface-dim: var(--color-paper-3);
+  --surface-bright: var(--color-panel);
+  --surface-container-lowest: var(--color-panel);
+  --surface-container-low: var(--color-panel-2);
+  --surface-container: var(--color-paper-2);
+  --surface-container-high: var(--color-paper-3);
+  --surface-container-highest: oklch(88.7% 0.016 220);
+  --on-surface: var(--color-ink);
+  --on-surface-variant: var(--color-ink-2);
+  --inverse-surface: oklch(21.5% 0.012 250);
+  --inverse-on-surface: oklch(96.2% 0.003 247);
+  --outline: var(--color-rule-strong);
+  --outline-variant: var(--color-rule);
+  --surface-tint: var(--color-accent);
+  --primary: var(--color-accent);
+  --on-primary: var(--color-accent-ink);
+  --primary-container: var(--color-ink);
+  --on-primary-container: var(--color-accent-ink);
+  --inverse-primary: oklch(78% 0.032 247);
+  --secondary: var(--color-ink-2);
+  --on-secondary: var(--color-accent-ink);
+  --secondary-container: var(--color-accent-soft);
+  --on-secondary-container: var(--color-accent-strong);
+  --tertiary: var(--color-warning);
+  --on-tertiary: oklch(20% 0.03 72);
+  --tertiary-container: var(--color-warning-soft);
+  --on-tertiary-container: oklch(34% 0.045 72);
+  --error: var(--color-danger);
+  --on-error: oklch(98% 0.003 28);
+  --error-container: var(--color-danger-soft);
+  --on-error-container: oklch(35% 0.055 28);
+  --primary-fixed: var(--color-accent-soft);
+  --primary-fixed-dim: oklch(83% 0.018 247);
+  --on-primary-fixed: oklch(22% 0.018 247);
+  --on-primary-fixed-variant: var(--color-accent-strong);
+  --secondary-fixed: var(--color-panel-3);
+  --secondary-fixed-dim: var(--color-rule);
+  --on-secondary-fixed: var(--color-ink);
+  --on-secondary-fixed-variant: var(--color-ink-2);
+  --tertiary-fixed: var(--color-warning-soft);
+  --tertiary-fixed-dim: oklch(85% 0.038 72);
+  --on-tertiary-fixed: oklch(25% 0.028 72);
+  --on-tertiary-fixed-variant: oklch(42% 0.045 72);
+  --background: var(--color-paper);
+  --on-background: var(--color-ink);
+  --surface-variant: var(--color-panel-3);
+  --background-alt: oklch(95.4% 0.005 247);
+  --success-muted: var(--color-success-soft);
+  --priority-high: var(--color-danger);
+  --task-yellow: var(--color-warning);
+  --story-blue: var(--color-accent);
+  --line: var(--color-rule);
+  --line-strong: var(--color-rule-strong);
+  --text: var(--color-ink);
+  --text-muted: var(--color-ink-2);
+  --text-soft: var(--color-ink-3);
+  --panel: var(--color-panel);
+  --surface-subtle: var(--color-panel-2);
+  --surface-muted: var(--color-paper-2);
+  --accent: var(--color-accent);
+  --accent-strong: var(--color-accent-strong);
+  --accent-soft: var(--color-accent-soft);
+  --warning: var(--color-warning);
+  --danger: var(--color-danger);
+  --info: var(--color-info);
+
+  --font-display: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "SFMono-Regular", ui-monospace, monospace;
+
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.35rem;
+  --radius-pill: 999px;
+
+  --shadow-panel: 0 1px 1px color-mix(in oklch, var(--color-ink) 6%, transparent), 0 16px 42px color-mix(in oklch, var(--color-ink) 8%, transparent);
+  --shadow-popover: 0 18px 55px color-mix(in oklch, var(--color-ink) 16%, transparent);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 160ms;
+  --dur-medium: 240ms;
+
+  font-family: var(--font-body);
+}

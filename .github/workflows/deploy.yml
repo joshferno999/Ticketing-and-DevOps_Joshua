@@ -1,0 +1,159 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  ECR_FRONTEND_REPOSITORY: emergence-devops-frontend
+  ECR_BACKEND_REPOSITORY: emergence-devops-backend
+  ECS_CLUSTER: emergence-devops
+  ECS_FRONTEND_SERVICE: emergence-devops-frontend
+  ECS_BACKEND_SERVICE: emergence-devops-backend
+  VITE_API_BASE_URL: https://devops.emsoft.com/api
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm install
+      - run: npm run prisma:generate --workspace backend
+      - run: npm run typecheck
+      - run: npm run test
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        run: |
+          IMAGE="${ECR_REGISTRY}/${ECR_BACKEND_REPOSITORY}"
+          docker buildx build --platform linux/amd64 \
+            -f backend/Dockerfile \
+            -t "${IMAGE}:${{ github.sha }}" \
+            -t "${IMAGE}:latest" \
+            --push .
+
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        run: |
+          IMAGE="${ECR_REGISTRY}/${ECR_FRONTEND_REPOSITORY}"
+          docker buildx build --platform linux/amd64 \
+            -f frontend/Dockerfile \
+            --build-arg VITE_API_BASE_URL="${VITE_API_BASE_URL}" \
+            -t "${IMAGE}:${{ github.sha }}" \
+            -t "${IMAGE}:latest" \
+            --push .
+
+      - name: Register task definitions and deploy
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        run: |
+          FE_IMAGE="${ECR_REGISTRY}/${ECR_FRONTEND_REPOSITORY}:${{ github.sha }}"
+          BE_IMAGE="${ECR_REGISTRY}/${ECR_BACKEND_REPOSITORY}:${{ github.sha }}"
+
+          EXECUTION_ROLE_ARN=$(aws iam get-role --role-name emergence-devops-ecs-task-execution --query Role.Arn --output text)
+          TASK_ROLE_ARN=$(aws iam get-role --role-name emergence-devops-ecs-task --query Role.Arn --output text)
+          SECRET_ARN=$(aws secretsmanager describe-secret --secret-id emergence-devops/backend --query ARN --output text)
+
+          build_secrets() {
+            local keys=(
+              PORT HOST DATABASE_URL FRONTEND_URL APP_AUTH_SECRET
+              GITHUB_APP_ID GITHUB_APP_PRIVATE_KEY
+              GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET
+              ASANA_CLIENT_ID ASANA_CLIENT_SECRET ASANA_REDIRECT_URI
+              ROUTE53_HEALTH_CHECK_ID ROUTE53_METRICS_REGION REACHABILITY_CACHE_TTL_SECONDS
+              AWS_REGION
+            )
+            local secret_json
+            secret_json="$(aws secretsmanager get-secret-value --secret-id emergence-devops/backend \
+              --query 'SecretString' --output text 2>/dev/null || echo '{}')"
+            local optional=(
+              GITHUB_WEBHOOK_SECRET
+              AWS_ACCESS_KEY_ID
+              AWS_SECRET_ACCESS_KEY
+              AWS_SESSION_TOKEN
+              CLOUDFLARE_API_TOKEN
+              CLOUDFLARE_ZONE_ID
+              CLOUDFLARE_TRAFFIC_CACHE_TTL_SECONDS
+            )
+            local key
+            for key in "${optional[@]}"; do
+              if echo "$secret_json" | jq -e --arg k "$key" 'has($k)' >/dev/null 2>&1; then
+                keys+=("$key")
+              fi
+            done
+            local items=()
+            for key in "${keys[@]}"; do
+              items+=("{\"name\":\"${key}\",\"valueFrom\":\"${SECRET_ARN}:${key}::\"}")
+            done
+            local joined
+            joined="$(IFS=,; echo "${items[*]}")"
+            echo "[${joined}]"
+          }
+
+          SECRETS_BLOCK=$(build_secrets)
+
+          render_task_def() {
+            local template="$1"
+            local image_uri="$2"
+            local secrets_block="${3:-}"
+            local rendered
+            rendered=$(sed \
+              -e "s|EXECUTION_ROLE_ARN|${EXECUTION_ROLE_ARN}|g" \
+              -e "s|TASK_ROLE_ARN|${TASK_ROLE_ARN}|g" \
+              -e "s|IMAGE_URI|${image_uri}|g" \
+              "$template")
+            if [ -n "$secrets_block" ]; then
+              rendered=$(echo "$rendered" | sed "s|\"secrets\": \"SECRETS_BLOCK\"|\"secrets\": ${secrets_block}|")
+            else
+              rendered=$(echo "$rendered" | sed '/"secrets": "SECRETS_BLOCK",/d')
+            fi
+            echo "$rendered"
+          }
+
+          FE_DEF=$(mktemp)
+          BE_DEF=$(mktemp)
+          render_task_def infra/ecs/task-definition-frontend.json "$FE_IMAGE" > "$FE_DEF"
+          render_task_def infra/ecs/task-definition-backend.json "$BE_IMAGE" "$SECRETS_BLOCK" > "$BE_DEF"
+
+          FE_TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://${FE_DEF}" --query taskDefinition.taskDefinitionArn --output text)
+          BE_TASK_ARN=$(aws ecs register-task-definition --cli-input-json "file://${BE_DEF}" --query taskDefinition.taskDefinitionArn --output text)
+
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_FRONTEND_SERVICE" --task-definition "$FE_TASK_ARN" --force-new-deployment
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_BACKEND_SERVICE" --task-definition "$BE_TASK_ARN" --force-new-deployment \
+            --deployment-configuration "deploymentCircuitBreaker={enable=true,rollback=true}"
+
+      - name: Wait for production backend health
+        run: |
+          echo "Waiting for ${VITE_API_BASE_URL}/health (up to 12 minutes)..."
+          for attempt in $(seq 1 48); do
+            if curl -fsS "${VITE_API_BASE_URL}/health" >/dev/null 2>&1; then
+              echo "Backend healthy after attempt ${attempt}."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/48: not ready, sleeping 15s..."
+            sleep 15
+          done
+          echo "Backend did not become healthy in time. Check ECS service events." >&2
+          exit 1

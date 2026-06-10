@@ -1,0 +1,16 @@
+node_modules
+dist
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage
+.turbo
+.vite
+frontend/dist
+backend/dist
+prisma/dev.db
+inspire/
+infra/ecs/secrets.backend.json
+infra/ecs/.bootstrap-output.env

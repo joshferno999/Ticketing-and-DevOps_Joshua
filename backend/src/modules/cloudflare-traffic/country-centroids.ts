@@ -1,0 +1,46 @@
+/** Approximate geographic centroids for Cloudflare clientCountryName (ISO 3166-1 alpha-2). */
+export const COUNTRY_CENTROIDS: Record<string, { lat: number; lng: number; name: string }> = {
+  AE: { lat: 23.42, lng: 53.85, name: "United Arab Emirates" },
+  AU: { lat: -25.27, lng: 133.78, name: "Australia" },
+  BE: { lat: 50.5, lng: 4.47, name: "Belgium" },
+  BR: { lat: -14.24, lng: -51.93, name: "Brazil" },
+  CA: { lat: 56.13, lng: -106.35, name: "Canada" },
+  CH: { lat: 46.82, lng: 8.23, name: "Switzerland" },
+  CN: { lat: 35.86, lng: 104.2, name: "China" },
+  DE: { lat: 51.17, lng: 10.45, name: "Germany" },
+  ES: { lat: 40.46, lng: -3.75, name: "Spain" },
+  FI: { lat: 61.92, lng: 25.75, name: "Finland" },
+  FR: { lat: 46.23, lng: 2.21, name: "France" },
+  GB: { lat: 55.38, lng: -3.44, name: "United Kingdom" },
+  HK: { lat: 22.32, lng: 114.17, name: "Hong Kong" },
+  HU: { lat: 47.16, lng: 19.5, name: "Hungary" },
+  ID: { lat: -0.79, lng: 113.92, name: "Indonesia" },
+  IE: { lat: 53.35, lng: -6.26, name: "Ireland" },
+  IL: { lat: 31.05, lng: 34.85, name: "Israel" },
+  IN: { lat: 20.59, lng: 78.96, name: "India" },
+  IT: { lat: 41.87, lng: 12.57, name: "Italy" },
+  JP: { lat: 36.2, lng: 138.25, name: "Japan" },
+  KR: { lat: 35.91, lng: 127.77, name: "South Korea" },
+  MX: { lat: 23.63, lng: -102.55, name: "Mexico" },
+  MY: { lat: 4.21, lng: 101.98, name: "Malaysia" },
+  NL: { lat: 52.13, lng: 5.29, name: "Netherlands" },
+  NO: { lat: 60.47, lng: 8.47, name: "Norway" },
+  NZ: { lat: -40.9, lng: 174.89, name: "New Zealand" },
+  PH: { lat: 12.88, lng: 121.77, name: "Philippines" },
+  PK: { lat: 30.38, lng: 69.35, name: "Pakistan" },
+  PL: { lat: 51.92, lng: 19.15, name: "Poland" },
+  PT: { lat: 39.4, lng: -8.22, name: "Portugal" },
+  RU: { lat: 61.52, lng: 105.32, name: "Russia" },
+  SE: { lat: 60.13, lng: 18.64, name: "Sweden" },
+  SG: { lat: 1.35, lng: 103.82, name: "Singapore" },
+  TH: { lat: 15.87, lng: 100.99, name: "Thailand" },
+  TR: { lat: 38.96, lng: 35.24, name: "Turkey" },
+  TW: { lat: 23.7, lng: 120.96, name: "Taiwan" },
+  US: { lat: 37.09, lng: -95.71, name: "United States" },
+  VN: { lat: 14.06, lng: 108.28, name: "Vietnam" },
+  ZA: { lat: -30.56, lng: 22.94, name: "South Africa" }
+};
+
+export function resolveCountryCentroid(countryCode: string) {
+  return COUNTRY_CENTROIDS[countryCode.toUpperCase()] ?? null;
+}

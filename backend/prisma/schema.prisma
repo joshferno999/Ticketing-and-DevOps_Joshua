@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppUser {
+  id                        String           @id @default(cuid())
+  email                     String           @unique
+  passwordHash              String
+  displayName               String?
+  asanaProfileImageUrl      String?
+  asanaAccessTokenEncrypted String?
+  asanaRefreshTokenEncrypted String?
+  asanaTokenExpiresAt       DateTime?
+  asanaUserGid              String?
+  githubAccessTokenEncrypted String?
+  githubRefreshTokenEncrypted String?
+  githubTokenExpiresAt      DateTime?
+  githubInstallationId      BigInt?
+  githubAccountLogin        String?
+  githubAccountType         String?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  sessions                  AppSession[]
+  githubInstallations       GitHubInstallation[]
+  githubInstallationMembers GitHubInstallationMember[]
+  importedBoards            Board[]              @relation("BoardImportedBy")
+  assignedCards             Card[]               @relation("CardAssignee")
+  cardComments              CardComment[]        @relation("CardCommentAuthor")
+  auditEvents               AuditEvent[]
+}
+
+model AppSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  appUserId  String
+  appUser    AppUser  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId])
+}
+
+model GitHubInstallation {
+  id                  String             @id @default(cuid())
+  githubInstallationId BigInt            @unique
+  accountLogin        String
+  accountType         String
+  targetType          String
+  repositorySelection String
+  settingsUrl         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  appUserId           String
+  appUser             AppUser                    @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  repositories        GitHubRepository[]
+  members             GitHubInstallationMember[]
+
+  @@index([appUserId])
+}
+
+model GitHubInstallationMember {
+  id                     String             @id @default(cuid())
+  appUserId              String
+  githubInstallationDbId String
+  createdAt              DateTime           @default(now())
+  appUser                AppUser            @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  githubInstallation     GitHubInstallation @relation(fields: [githubInstallationDbId], references: [id], onDelete: Cascade)
+
+  @@unique([appUserId, githubInstallationDbId])
+  @@index([appUserId])
+  @@index([githubInstallationDbId])
+}
+
+model GitHubRepository {
+  id                    String             @id @default(cuid())
+  githubRepoId          BigInt
+  name                  String
+  fullName              String
+  defaultBoardId        String?
+  githubInstallationDbId String
+  githubInstallation    GitHubInstallation @relation(fields: [githubInstallationDbId], references: [id], onDelete: Cascade)
+  activities            GitHubActivity[]
+
+  @@index([fullName])
+  @@unique([githubInstallationDbId, githubRepoId])
+}
+
+model Board {
+  id                 String               @id @default(cuid())
+  name               String
+  isStarred          Boolean              @default(false)
+  asanaParentTaskGid String               @unique
+  asanaWorkspaceName String
+  asanaProjectName   String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  importedByAppUserId String
+  importedByAppUser   AppUser              @relation("BoardImportedBy", fields: [importedByAppUserId], references: [id], onDelete: Cascade)
+  boardColumnMappings BoardColumnMapping[]
+  cards              Card[]
+
+  @@index([importedByAppUserId])
+}
+
+model BoardColumnMapping {
+  id                 String   @id @default(cuid())
+  columnKey          String
+  columnName         String
+  columnColor        String
+  asanaEnumOptionGid String?
+  boardId            String
+  board              Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, columnKey])
+}
+
+model Card {
+  id               String             @id @default(cuid())
+  asanaTaskGid     String             @unique
+  asanaParentTaskGid String
+  asanaRootTaskGid String
+  ancestryPath     String[]           @default([])
+  nestingDepth     Int                @default(0)
+  title            String
+  description      String             @default("")
+  dueOn            String?
+  dueAt            DateTime?
+  manualStatusKey  String?
+  manualCompletion Boolean            @default(false)
+  statusKey        String
+  assigneeName        String?
+  assigneeAppUserId   String?
+  assigneeAppUser     AppUser?           @relation("CardAssignee", fields: [assigneeAppUserId], references: [id], onDelete: SetNull)
+  priority         String?
+  tags             String[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  boardId          String
+  board            Board              @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  developmentLinks DevelopmentLink[]
+  githubActivityLinks GitHubActivityTaskLink[]
+  statusEvents     CardStatusEvent[]
+  comments         CardComment[]
+
+  @@index([assigneeAppUserId])
+}
+
+model CardComment {
+  id              String   @id @default(cuid())
+  cardId          String
+  asanaStoryGid   String   @unique
+  asanaTaskGid    String
+  authorAppUserId String?
+  authorAsanaGid  String?
+  authorName      String
+  htmlText        String   @db.Text
+  plainText       String?  @db.Text
+  createdAt       DateTime
+  card            Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  authorAppUser   AppUser? @relation("CardCommentAuthor", fields: [authorAppUserId], references: [id], onDelete: SetNull)
+
+  @@index([cardId, createdAt])
+}
+
+model GitHubActivity {
+  id                String                  @id @default(cuid())
+  activityType      String
+  title             String
+  url               String
+  state             String?
+  sha               String?
+  pullRequestNumber Int?
+  branchName        String?
+  authorName        String
+  authorLogin       String?
+  authoredAt        DateTime
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  repositoryId      String
+  repository        GitHubRepository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  taskLinks         GitHubActivityTaskLink[]
+
+  @@index([repositoryId, activityType])
+  @@unique([repositoryId, sha])
+  @@unique([repositoryId, pullRequestNumber])
+}
+
+model GitHubActivityTaskLink {
+  id         String         @id @default(cuid())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  activityId String
+  activity   GitHubActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  cardId     String
+  card       Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, cardId])
+  @@index([cardId])
+}
+
+model DevelopmentLink {
+  id         String   @id @default(cuid())
+  linkType   String
+  title      String
+  url        String
+  sha        String?
+  state      String?
+  authorName String
+  authoredAt DateTime
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model CardStatusEvent {
+  id         String   @id @default(cuid())
+  fromStatus String?
+  toStatus   String
+  changedAt  DateTime @default(now())
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  provider   String
+  eventName  String
+  deliveryId String   @unique
+  status     String
+  rawPayload Json
+  createdAt  DateTime @default(now())
+}
+
+model SyncJob {
+  id         String   @id @default(cuid())
+  provider   String
+  jobType    String
+  payload    Json
+  status     String   @default("queued")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  actorId    String
+  actor      AppUser  @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}
