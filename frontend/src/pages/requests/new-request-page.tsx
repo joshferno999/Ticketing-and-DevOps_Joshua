@@ -150,7 +150,7 @@ function SuccessCard({ state }: { state: FormState }) {
           { label: "Type", value: state.requestType ? TYPE_LABEL_MAP[state.requestType] : "—" },
           {
             label: "Module",
-            value: [state.product, state.module, state.submodule].filter(Boolean).join(" › "),
+            value: [state.product, state.module].filter(Boolean).join(" › "),
           },
           { label: "Urgency", value: state.urgency ? state.urgency.charAt(0).toUpperCase() + state.urgency.slice(1) : "—" },
           ...(state.files.length > 0
@@ -197,11 +197,7 @@ export function NewRequestPage() {
   }
 
   function handleProductChange(product: string) {
-    patch({ product, module: "", submodule: "" });
-  }
-
-  function handleModuleChange(module: string) {
-    patch({ module, submodule: "" });
+    patch({ product, module: "" });
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -230,8 +226,6 @@ export function NewRequestPage() {
     if (validate()) setSubmitted(true);
   }
 
-  const modules = state.product ? Object.keys(MODULE_TREE[state.product] ?? {}) : [];
-  const submodules = state.product && state.module ? MODULE_TREE[state.product]?.[state.module] ?? [] : [];
 
   return (
     <div className="flex min-h-full items-start justify-center bg-background-alt px-4 py-10">
@@ -383,84 +377,80 @@ export function NewRequestPage() {
 
                 <div className="h-px bg-outline-variant" />
 
-                {/* ── Section 3: Module ──────────────────────────────────────── */}
+                {/* ── Section 3: Product & Module ────────────────────────────── */}
                 <section>
                   <SectionHeader
                     number={3}
                     title="Which part of the product?"
-                    subtitle="Helps us route this to the right team"
+                    subtitle="Type to search or enter a custom value"
                   />
                   <div className="flex flex-col gap-3 pl-10">
-                    {/* Product */}
-                    <div>
-                      <label className="mb-1.5 block font-label-sm text-label-sm text-on-surface-variant">
-                        Product <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={state.product}
-                        onChange={(e) => handleProductChange(e.target.value)}
-                        className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
-                          errors.product ? "border-red-400" : "border-outline-variant focus:border-primary"
-                        }`}
-                      >
-                        <option value="">Select a product…</option>
-                        {Object.keys(MODULE_TREE).map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                      {errors.product && (
-                        <p className="mt-1 font-body-sm text-body-sm text-red-500">{errors.product}</p>
-                      )}
-                    </div>
+                    {/* Datalist: all known products */}
+                    <datalist id="bt-products">
+                      {Object.keys(MODULE_TREE).map((p) => (
+                        <option key={p} value={p} />
+                      ))}
+                    </datalist>
 
-                    {/* Module — shown after product selected */}
-                    {state.product && (
+                    {/* Datalist: modules filtered by product if recognised, else all */}
+                    <datalist id="bt-modules">
+                      {(MODULE_TREE[state.product]
+                        ? Object.keys(MODULE_TREE[state.product] ?? {})
+                        : Object.values(MODULE_TREE).flatMap((v) => Object.keys(v))
+                      ).map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Product */}
+                      <div>
+                        <label className="mb-1.5 block font-label-sm text-label-sm text-on-surface-variant">
+                          Product <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          list="bt-products"
+                          value={state.product}
+                          onChange={(e) => handleProductChange(e.target.value)}
+                          placeholder="e.g. DCC, SCT…"
+                          autoComplete="off"
+                          className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
+                            errors.product ? "border-red-400" : "border-outline-variant focus:border-primary"
+                          }`}
+                        />
+                        {errors.product && (
+                          <p className="mt-1 font-body-sm text-body-sm text-red-500">{errors.product}</p>
+                        )}
+                      </div>
+
+                      {/* Module */}
                       <div>
                         <label className="mb-1.5 block font-label-sm text-label-sm text-on-surface-variant">
                           Module <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <input
+                          type="text"
+                          list="bt-modules"
                           value={state.module}
-                          onChange={(e) => handleModuleChange(e.target.value)}
-                          className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
+                          onChange={(e) => patch({ module: e.target.value })}
+                          placeholder="e.g. Pipeline, Reply Dashboard…"
+                          autoComplete="off"
+                          className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
                             errors.module ? "border-red-400" : "border-outline-variant focus:border-primary"
                           }`}
-                        >
-                          <option value="">Select a module…</option>
-                          {modules.map((m) => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
+                        />
                         {errors.module && (
                           <p className="mt-1 font-body-sm text-body-sm text-red-500">{errors.module}</p>
                         )}
                       </div>
-                    )}
-
-                    {/* Submodule — shown if module has submodules */}
-                    {state.module && submodules.length > 0 && (
-                      <div>
-                        <label className="mb-1.5 block font-label-sm text-label-sm text-on-surface-variant">
-                          Submodule <span className="text-on-surface-variant opacity-60">(optional)</span>
-                        </label>
-                        <select
-                          value={state.submodule}
-                          onChange={(e) => patch({ submodule: e.target.value })}
-                          className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors"
-                        >
-                          <option value="">None — module level is fine</option>
-                          {submodules.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    </div>
 
                     {/* Breadcrumb preview */}
                     {state.product && state.module && (
                       <div className="flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-4 py-2.5 font-body-sm text-body-sm text-on-surface-variant">
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>account_tree</span>
-                        <span>{[state.product, state.module, state.submodule].filter(Boolean).join(" › ")}</span>
+                        <span>{state.product} › {state.module}</span>
                       </div>
                     )}
                   </div>
