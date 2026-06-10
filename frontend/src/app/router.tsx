@@ -19,6 +19,8 @@ import { MyQueuePage } from "../pages/requests/my-queue-page";
 import { SponsorPortalPage } from "../pages/requests/sponsor-portal-page";
 import { RequestsAnalyticsPage } from "../pages/requests/requests-analytics-page";
 import { AdminPage } from "../pages/admin/admin-page";
+import { SlackStatusPage } from "../pages/requests/slack-status-page";
+import { StaleTicketsPage } from "../pages/requests/stale-tickets-page";
 
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage />, errorElement: <RouteErrorBoundary /> },
@@ -46,6 +48,8 @@ export const router = createBrowserRouter([
       { path: "requests/analytics", element: <RequestsAnalyticsPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/*", element: <AdminPage /> },
+      { path: "requests/slack", element: <SlackStatusPage /> },
+      { path: "requests/stale", element: <StaleTicketsPage /> },
       { path: "*", element: <Navigate to="/boards" replace /> }
     ]
   }
