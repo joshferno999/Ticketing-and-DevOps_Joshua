@@ -70,37 +70,20 @@ const INITIAL_STATE: FormState = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const REQUEST_TYPES: {
-  value: RequestType;
-  emoji: string;
-  label: string;
-  description: string;
-  note?: string;
-}[] = [
-  { value: "bug", emoji: "🐛", label: "Bug", description: "Something is broken or not working as expected" },
-  { value: "enhancement", emoji: "✨", label: "Enhancement", description: "Improve an existing feature or workflow" },
-  { value: "new_feature", emoji: "🆕", label: "New Feature", description: "A brand new capability or screen" },
-  { value: "data_reporting", emoji: "📊", label: "Data / Reporting", description: "A new report, export, or data view" },
-  { value: "process_change", emoji: "🔄", label: "Process Change", description: "A change to how a workflow or process works" },
-  {
-    value: "sponsor_build",
-    emoji: "🏗️",
-    label: "Sponsor Build",
-    description: "A full feature built by the engineering team for your vertical",
-    note: "A more detailed form will follow after submission",
-  },
+const REQUEST_TYPES: { value: RequestType; label: string }[] = [
+  { value: "bug",            label: "🐛  Bug" },
+  { value: "enhancement",   label: "✨  Enhancement" },
+  { value: "new_feature",   label: "🆕  New Feature" },
+  { value: "data_reporting", label: "📊  Data / Reporting" },
+  { value: "process_change", label: "🔄  Process Change" },
+  { value: "sponsor_build",  label: "🏗️  Sponsor Build" },
 ];
 
-const URGENCY_OPTIONS: {
-  value: Urgency;
-  dot: string;
-  label: string;
-  description: string;
-}[] = [
-  { value: "critical", dot: "🔴", label: "Critical", description: "Blocking work right now" },
-  { value: "high", dot: "🟠", label: "High", description: "Significantly impacting productivity" },
-  { value: "medium", dot: "🟡", label: "Medium", description: "Has a workaround, schedule when possible" },
-  { value: "low", dot: "🟢", label: "Low", description: "Nice to have, no urgency" },
+const URGENCY_OPTIONS: { value: Urgency; label: string }[] = [
+  { value: "critical", label: "🔴  Critical — blocking work right now" },
+  { value: "high",     label: "🟠  High — significantly impacting productivity" },
+  { value: "medium",   label: "🟡  Medium — has a workaround" },
+  { value: "low",      label: "🟢  Low — nice to have" },
 ];
 
 const TYPE_LABEL_MAP: Record<RequestType, string> = {
@@ -373,40 +356,28 @@ export function NewRequestPage() {
                   <SectionHeader
                     number={2}
                     title="What type of request is this?"
-                    subtitle="Pick the category that best describes what you need"
                   />
                   <div className="pl-10">
-                    {errors.requestType && (
-                      <p className="mb-2 font-body-sm text-body-sm text-red-500">{errors.requestType}</p>
+                    <select
+                      value={state.requestType ?? ""}
+                      onChange={(e) => patch({ requestType: (e.target.value || null) as RequestType | null })}
+                      className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
+                        errors.requestType ? "border-red-400" : "border-outline-variant focus:border-primary"
+                      }`}
+                    >
+                      <option value="">Select a type…</option>
+                      {REQUEST_TYPES.map((rt) => (
+                        <option key={rt.value} value={rt.value}>{rt.label}</option>
+                      ))}
+                    </select>
+                    {state.requestType === "sponsor_build" && (
+                      <p className="mt-1.5 font-body-sm text-body-sm text-violet-600 italic">
+                        A more detailed form will follow after submission.
+                      </p>
                     )}
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {REQUEST_TYPES.map((rt) => {
-                        const isSelected = state.requestType === rt.value;
-                        return (
-                          <button
-                            key={rt.value}
-                            type="button"
-                            onClick={() => patch({ requestType: rt.value })}
-                            className={`flex flex-col gap-1.5 rounded-xl border p-4 text-left transition-colors ${
-                              isSelected
-                                ? "border-inverse-surface bg-inverse-surface/8"
-                                : "border-outline-variant hover:border-outline hover:bg-surface-container-low"
-                            }`}
-                          >
-                            <span className="text-xl">{rt.emoji}</span>
-                            <span className="font-label-sm text-label-sm text-on-surface leading-snug">{rt.label}</span>
-                            <span className="font-body-sm text-body-sm text-on-surface-variant leading-snug opacity-80">
-                              {rt.description}
-                            </span>
-                            {rt.note && (
-                              <span className="mt-0.5 font-body-sm text-body-sm text-violet-600 leading-snug italic">
-                                {rt.note}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {errors.requestType && (
+                      <p className="mt-1 font-body-sm text-body-sm text-red-500">{errors.requestType}</p>
+                    )}
                   </div>
                 </section>
 
@@ -505,34 +476,21 @@ export function NewRequestPage() {
                     subtitle="Be honest — it helps us triage fairly"
                   />
                   <div className="flex flex-col gap-4 pl-10">
+                    <select
+                      value={state.urgency ?? ""}
+                      onChange={(e) => patch({ urgency: (e.target.value || null) as Urgency | null })}
+                      className={`w-full rounded-xl border bg-surface-container-lowest px-stack-sm py-stack-sm font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-[color-mix(in_oklch,var(--color-focus)_18%,transparent)] transition-colors ${
+                        errors.urgency ? "border-red-400" : "border-outline-variant focus:border-primary"
+                      }`}
+                    >
+                      <option value="">Select urgency…</option>
+                      {URGENCY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                     {errors.urgency && (
-                      <p className="font-body-sm text-body-sm text-red-500">{errors.urgency}</p>
+                      <p className="mt-1 font-body-sm text-body-sm text-red-500">{errors.urgency}</p>
                     )}
-                    <div className="grid grid-cols-2 gap-3">
-                      {URGENCY_OPTIONS.map((opt) => {
-                        const isSelected = state.urgency === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => patch({ urgency: opt.value })}
-                            className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
-                              isSelected
-                                ? "border-inverse-surface bg-inverse-surface/8"
-                                : "border-outline-variant hover:border-outline hover:bg-surface-container-low"
-                            }`}
-                          >
-                            <span className="mt-0.5 text-lg">{opt.dot}</span>
-                            <div>
-                              <p className="font-label-sm text-label-sm text-on-surface">{opt.label}</p>
-                              <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant leading-snug">
-                                {opt.description}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
 
                     {/* Page URL */}
                     <div>
