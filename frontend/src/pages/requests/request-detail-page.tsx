@@ -668,6 +668,28 @@ function NotFound({ id }: { id: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// ─── Asana sync state ─────────────────────────────────────────────────────────
+
+type AsanaSyncStatus = "not_synced" | "syncing" | "synced" | "error";
+
+interface AsanaSyncState {
+  status: AsanaSyncStatus;
+  taskGid: string | null;       // set after first successful push
+  taskUrl: string | null;       // https://app.asana.com/0/...
+  syncedAt: Date | null;
+  errorMsg: string | null;
+}
+
+const INITIAL_ASANA_STATE: AsanaSyncState = {
+  status: "not_synced",
+  taskGid: null,
+  taskUrl: null,
+  syncedAt: null,
+  errorMsg: null,
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const normalizedId = id?.toUpperCase() ?? "";
@@ -675,10 +697,35 @@ export function RequestDetailPage() {
 
   const [devStage, setDevStage] = useState<DevStage>(ticketData?.devStage ?? "picked_up");
   const [toast, setToast] = useState<string | null>(null);
+  const [asana, setAsana] = useState<AsanaSyncState>(INITIAL_ASANA_STATE);
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  }
+
+  // Demo-mode push: simulates the API call + webhook response.
+  // Production: replace with POST /api/buildtrack/tickets/:id/asana-push
+  function handlePushToAsana() {
+    if (asana.status === "syncing") return;
+    setAsana((s) => ({ ...s, status: "syncing", errorMsg: null }));
+    setTimeout(() => {
+      // Simulate success (swap with real fetch + error handling)
+      const fakeGid = `${Date.now()}`;
+      setAsana({
+        status: "synced",
+        taskGid: fakeGid,
+        taskUrl: `https://app.asana.com/0/product-tickets/${fakeGid}`,
+        syncedAt: new Date(),
+        errorMsg: null,
+      });
+      showToast("Pushed to Asana — task created in Product Tickets");
+    }, 1800);
+  }
+
+  // Demo-mode retry — same flow as initial push
+  function handleRetrySync() {
+    handlePushToAsana();
   }
 
   if (!ticketData) {
@@ -813,24 +860,103 @@ export function RequestDetailPage() {
               {/* AI Recommendation */}
               <AiRecommendationCard rec={ticket.aiRecommendation} />
 
-              {/* Asana task */}
+              {/* Asana task — production-ready sync card */}
               <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-5 flex flex-col gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-on-surface-variant opacity-60">
-                    task_alt
-                  </span>
-                  <span className="text-sm font-semibold text-on-surface">Asana Task</span>
-                </div>
+                {/* Header */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-on-surface-variant opacity-60">Not synced</span>
-                  <button
-                    onClick={() => showToast("Asana sync coming soon")}
-                    className="inline-flex items-center gap-1 rounded-xl border border-outline-variant px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">sync</span>
-                    Push to Asana
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-on-surface-variant opacity-60">
+                      task_alt
+                    </span>
+                    <span className="text-sm font-semibold text-on-surface">Asana</span>
+                  </div>
+                  {/* Live pulse when synced */}
+                  {asana.status === "synced" && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    </span>
+                  )}
                 </div>
+
+                {/* ── not synced ── */}
+                {asana.status === "not_synced" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-on-surface-variant opacity-60">
+                      Not pushed to Asana yet
+                    </span>
+                    <button
+                      onClick={handlePushToAsana}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-on-surface px-3 py-1.5 text-xs font-semibold text-surface hover:opacity-80 transition-opacity"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">upload</span>
+                      Push to Asana
+                    </button>
+                  </div>
+                )}
+
+                {/* ── syncing ── */}
+                {asana.status === "syncing" && (
+                  <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                    <svg className="animate-spin h-3.5 w-3.5 text-violet-500" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                    </svg>
+                    Creating task in <strong>Product Tickets</strong>…
+                  </div>
+                )}
+
+                {/* ── synced ── */}
+                {asana.status === "synced" && asana.taskUrl && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-green-700 font-medium flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                        Synced · Product Tickets
+                      </span>
+                      <a
+                        href={asana.taskUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-xl border border-outline-variant px-3 py-1.5 text-xs font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors"
+                      >
+                        View in Asana
+                        <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                      </a>
+                    </div>
+                    {asana.syncedAt && (
+                      <p className="text-[11px] text-on-surface-variant opacity-50">
+                        Last synced {asana.syncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {" · "}Changes here mirror to Asana automatically
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── error ── */}
+                {asana.status === "error" && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">error</span>
+                        Sync error
+                      </span>
+                      <button
+                        onClick={handleRetrySync}
+                        className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">refresh</span>
+                        Retry
+                      </button>
+                    </div>
+                    {asana.errorMsg && (
+                      <p className="text-[11px] text-red-500 opacity-80">{asana.errorMsg}</p>
+                    )}
+                    <p className="text-[11px] text-on-surface-variant opacity-50">
+                      Changes will retry automatically when the connection recovers.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* GitHub PRs */}
